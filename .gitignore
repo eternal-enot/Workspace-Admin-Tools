@@ -1,0 +1,12 @@
+# Credentials & secrets (across all subprojects)
+Secrets.js
+.clasp.json
+
+# Personal data
+students_data.js
+
+# Local reference
+clasp_commands.txt
+
+# OS / IDE
+.DS_Store
