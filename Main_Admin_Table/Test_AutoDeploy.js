@@ -54,12 +54,9 @@ function runFullAutoDeployTests() {
         // 3. STUDENT: Missing Group -> ERROR
         makeRow('Студент / аспірант', '', 'Студент', 'Безгрупи', 'І.', 'Student', 'NoGroup', 'std.err@test.com', '', ''),
 
-        // 4. PHD: Explicit Role via Note (actually form only has composite role, so we test composite + pattern)
-        // Case removed or adapted: "Аспірант" isn't a dropdown option. 
-        // Let's test "Студент / аспірант" with explicit PhD group pattern.
+        // 4–5. PHD via composite role + PhD group pattern -> DEPLOY
         makeRow('Студент / аспірант', '', 'Аспірант', 'Груповий', 'П.', 'Phd', 'Group', 'phd.group@test.com', 'ТМ-01ф', ''),
 
-        // 5. PHD: Implicit (Student/Asp role but 'ф' group) -> DEPLOY (PhD Sheet)
         makeRow('Студент / аспірант', '', 'Аспірант', 'Прихований', 'П.', 'Phd', 'Implicit', 'phd.impl@test.com', 'ТМ-02ф', ''),
 
         // 6. PHD: Recovery -> PREVIEW

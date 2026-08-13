@@ -1,12 +1,12 @@
 /**
- * Переносить:
- *  - колонку K -> A (тимчасово),
- *  - потім колонку F (яка після першого переносу стане колонкою G) -> A,
- *  - результат: F стане A, K стане B
- *  - далі вставляє 2 порожні колонки після B (тобто нові C та D)
+ * Moves:
+ *  - column K -> A (temporarily),
+ *  - then column F (which becomes G after the first move) -> A,
+ *  - result: F becomes A, K becomes B
+ *  - then inserts 2 empty columns after B (new C and D)
  *
- * ВАЖЛИВО: moveColumns переносить колонку разом із форматами та Data validation,
- * тож випадаючі списки для F та K НЕ мають “злітати”.
+ * IMPORTANT: moveColumns moves the column with formats and data validation,
+ * so dropdowns on F and K should not break.
  */
 function reorderColumns_F_to_A_K_to_B_addCD_() {
     const sheet = SpreadsheetApp.getActiveSheet();
@@ -17,13 +17,13 @@ function reorderColumns_F_to_A_K_to_B_addCD_() {
         throw new Error(`На аркуші "${sheet.getName()}" менше 11 колонок (K не існує).`);
     }
 
-    // 1) Перенести K -> A
+    // 1) Move K -> A
     sheet.moveColumns(sheet.getRange(1, 11, maxRows, 1), 1);
 
-    // 2) Після цього "стара" F стає колонкою 7 (G), бо перед нею додалась K
+    // 2) After that, old F becomes column 7 (G) because K was inserted before it
     sheet.moveColumns(sheet.getRange(1, 7, maxRows, 1), 1);
 
-    // 3) Додати 2 порожні колонки після B (отримаємо нові C та D)
+    // 3) Insert 2 empty columns after B (new C and D)
     sheet.insertColumnsAfter(2, 2);
 
     SpreadsheetApp.flush();

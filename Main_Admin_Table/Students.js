@@ -36,10 +36,9 @@ function runPreviewStudentsSilent_() {
     const values = sheet.getRange(2, 1, n, 15).getValues();
     let processedCount = 0;
 
-    // We will collect ranges to highlight
     const rangesToHighlight = [];
 
-    // [CACHE STRATEGY] Fetch all users once
+    // Fetch all users once
     const userCache = fetchCompleteUserCache_();
 
     const results = [];
@@ -65,15 +64,11 @@ function runPreviewStudentsSilent_() {
 
       processedCount++;
 
-      // Mark for highlighting (Attention needed)
       rangesToHighlight.push(rowIndex);
     }
 
-    // Apply Highlight (Light Yellow for rows requiring attention)
+    // Highlight previewed rows
     if (rangesToHighlight.length > 0) {
-      // It's more efficient to do batch, but for simplicity loop is fine or we can assume it's scattered
-      // Let's just highlight the MODE column (Column A) or the whole row? 
-      // User asked for "indicators in table". Let's highlight Column A (Status/Mode)
       for (const rIdx of rangesToHighlight) {
         sheet.getRange(rIdx, 1, 1, 15).setBackground('#fff9c4'); // Light yellow for whole row
       }
@@ -150,7 +145,7 @@ function processStudentsByMode_() {
 
       // Existence checks
       if (userExistsByUserKey_(genEmail)) {
-        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
           status: 'EXISTS',
           createdAt: new Date(),
@@ -160,7 +155,7 @@ function processStudentsByMode_() {
       }
 
       if (looksLikeEmail_(genRecovery) && userExistsByDomainEmailOrAlias_(genRecovery)) {
-        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
           status: 'EXISTS',
           createdAt: new Date(),
@@ -209,7 +204,7 @@ function processStudentsByMode_() {
           sendCredentialsEmail_(genRecovery, created.primaryEmail || genEmail, genPassword, nameUa, surnameUa, 'student');
         }
       } catch (e) {
-        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
           status: 'ERROR',
           error: String(e),
@@ -258,7 +253,7 @@ function previewStudentRow_(sheet, rowIndex, row, userCache) {
     if (userCache && userCache.recoveryMap.has(pEmail)) {
       const existingUser = userCache.recoveryMap.get(pEmail);
       const errorMsg = `User already exists (matched recovery email): ${existingUser}`;
-      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
       writeRowResultFixed_(sheet, rowIndex, {
         status: 'SKIP',
         error: errorMsg,
@@ -270,7 +265,7 @@ function previewStudentRow_(sheet, rowIndex, row, userCache) {
     if (userCache && userCache.workMap.has(pEmail)) {
       const existingUser = userCache.workMap.get(pEmail);
       const errorMsg = `User already exists (matched work/secondary email): ${existingUser}`;
-      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
       writeRowResultFixed_(sheet, rowIndex, {
         status: 'SKIP',
         error: errorMsg,
@@ -286,7 +281,7 @@ function previewStudentRow_(sheet, rowIndex, row, userCache) {
   // 2) Collision Check: Is GEN_EMAIL already taken?
   if (userCache && userCache.corpMap.has(genEmail)) {
     const errorMsg = `GEN_EMAIL CONFLICT: ${genEmail} is already active/alias. Manual intervention needed.`;
-    sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+    sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
     writeRowResultFixed_(sheet, rowIndex, {
       status: 'SKIP',
       error: errorMsg,

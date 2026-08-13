@@ -38,7 +38,7 @@ function runPreviewPhdSilent_() {
 
     const rangesToHighlight = [];
 
-    // [CACHE STRATEGY] Fetch all users once
+    // Fetch all users once
     const userCache = fetchCompleteUserCache_();
 
     const results = [];
@@ -67,7 +67,7 @@ function runPreviewPhdSilent_() {
       rangesToHighlight.push(rowIndex);
     }
 
-    // Apply Highlight (Light Yellow)
+    // Highlight previewed rows
     if (rangesToHighlight.length > 0) {
       for (const rIdx of rangesToHighlight) {
         sheet.getRange(rIdx, 1, 1, 15).setBackground('#fff9c4');
@@ -233,8 +233,6 @@ function previewPhdRow_(sheet, rowIndex, row, userCache) {
   if (!nameUa) missing.push('name');
   if (!surnameUa) missing.push('surname');
   if (!personalEmail) missing.push('personal email');
-  // For PhD we might not require 'group' strictly for OU, but we probably want it for records?
-  // Let's require it if it's there? The form mandates it as "Group".
   if (!groupOrDept) missing.push('group');
 
   if (missing.length) {
@@ -275,10 +273,7 @@ function previewPhdRow_(sheet, rowIndex, row, userCache) {
     }
   }
 
-  // Build OU path dynamically based on group
   const orgUnitPath = buildPhdOrgUnitPath_(groupOrDept);
-
-  // Use Staff logic for email: name.surname
   const genEmail = buildPhdPrimaryEmail_(nameUa, surnameUa);
 
   // 2) Collision Check: Is GEN_EMAIL already taken?
@@ -331,9 +326,7 @@ function buildPhdOrgUnitPath_(groupRaw) {
   else if (isBMK) dept = 'БМК';
   else if (isBBZL) dept = 'ББЗЛ';
 
-  // Structure: /Faculty / Dept / Track / Group? 
-  // Students: BASE / Dept / Track / Group
-  // So: /2. Факультети/ФБМІ / БМІ / 3. Аспіранти / GroupName
+  // Example OU: /2. Факультети/ФБМІ/<dept>/3. Аспіранти/<group>
   return `${APP_CONFIG.STUDENTS_BASE_OU}/${dept}/${track}/${g}`;
 }
 

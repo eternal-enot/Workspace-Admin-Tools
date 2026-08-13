@@ -1,5 +1,5 @@
 /**
- * Допоміжна функція для відправки листа випускнику (Alumni).
+ * Helper to send an alumni notification email.
  */
 function sendAlumniEmail_(mainEmail, recipients, deletionDateStr) {
     const SENDER_NAME = 'Адміністрація Google Workspace for Education';
@@ -61,7 +61,7 @@ function sendAlumniEmail_(mainEmail, recipients, deletionDateStr) {
 }
 
 /**
- * Допоміжна функція для відправки листа про видалення.
+ * Helper to send a deletion warning email.
  */
 function sendDeletionEmail_(mainEmail, recipients, deletionDateStr) {
     const SENDER_NAME = 'Адміністрація Google Workspace for Education';
@@ -122,7 +122,7 @@ function sendDeletionEmail_(mainEmail, recipients, deletionDateStr) {
 }
 
 /**
- * Форматує дату українською мовою: "DD місяця YYYY року"
+ * Formats a date in Ukrainian: "DD <month> YYYY року"
  */
 function formatUkrainianDate_(date) {
     const tz = Session.getScriptTimeZone() || "Europe/Kyiv";
@@ -137,7 +137,7 @@ function formatUkrainianDate_(date) {
 }
 
 /**
- * Перевіряє та створює всі відсутні каталоги (OU) по вказаному шляху.
+ * Checks and creates missing organizational units (OUs) along the provided path.
  */
 function archiveEnsureOrgUnit_(ouPath) {
     if (!ouPath || ouPath === "/") return;
@@ -189,7 +189,7 @@ function archiveEnsureOrgUnit_(ouPath) {
 }
 
 /**
- * Допоміжна функція для безпечного виклику API з повторними спробами (Retry Pattern).
+ * Helper to safely call Google APIs using an exponential backoff retry pattern.
  */
 function archiveCallWithRetry_(fn, maxRetries = 3) {
     let attempt = 0;

@@ -1,16 +1,16 @@
-/************** MOVE_CONFIG (адаптовано під нові колонки) **************/
+/************** MOVE_CONFIG (adapted for new columns) **************/
 /**
- * Після перестановки колонок:
- *  A = Status (раніше F)
- *  F = User key/email (раніше B)
- *  L = Org unit path (із checkUsersAndLastLogin, раніше I у старій логіці)
+ * After column reorder:
+ *  A = Status (was F)
+ *  F = User key/email (was B)
+ *  L = Org unit path (from checkUsersAndLastLogin; was I in the old layout)
  *
- * Для move:
- *  - userKey беремо з F
- *  - status беремо з A
- *  - oldOU беремо з L
- *  - newOU (вручну) логічно тримати в M
- *  - результат пишемо в N (Move status) і O (Move note)
+ * For move:
+ *  - userKey from F
+ *  - status from A
+ *  - oldOU from L
+ *  - newOU (manual) in M
+ *  - result written to N (Move status) and O (Move note)
  */
 const MOVE_CONFIG = {
     PROCESS_ALL_SHEETS: false,
@@ -18,13 +18,13 @@ const MOVE_CONFIG = {
     TARGET_SHEET_NAME: "БР-21",
     START_ROW: 2,
 
-    // Колонки (1-based)
+    // Columns (1-based)
     COL_USERKEY: 6,   // F
     COL_STATUS: 1,    // A
     COL_OLD_OU: 12,   // L
     COL_NEW_OU: 13,   // M
 
-    // Куди писати результат
+    // Where to write the result
     COL_MOVE_STATUS: 14, // N
     COL_MOVE_NOTE: 15,   // O
     SET_HEADERS: true,
@@ -36,8 +36,8 @@ const MOVE_CONFIG = {
 };
 
 /**
- * Переносить користувачів (FOUND) з OU в L у OU в M.
- * Вимога: Advanced Google Service "Admin SDK API" (Directory v1) => AdminDirectory
+ * Moves users (FOUND) from OU in L to OU in M.
+ * Requires Advanced Google Service "Admin SDK API" (Directory v1) => AdminDirectory
  */
 function moveFoundUsersToNewOU() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -54,7 +54,7 @@ function moveFoundUsersToNewOU() {
 
         const n = lastRow - MOVE_CONFIG.START_ROW + 1;
 
-        // Читаємо мінімально потрібні колонки окремо (стабільніше після перестановок)
+        // Read only the needed columns separately (more stable after reorders)
         const userKeys = sheet.getRange(MOVE_CONFIG.START_ROW, MOVE_CONFIG.COL_USERKEY, n, 1).getValues().map(r => String(r[0] ?? "").trim());
         const statuses = sheet.getRange(MOVE_CONFIG.START_ROW, MOVE_CONFIG.COL_STATUS, n, 1).getValues().map(r => String(r[0] ?? "").trim());
         const oldOUs = sheet.getRange(MOVE_CONFIG.START_ROW, MOVE_CONFIG.COL_OLD_OU, n, 1).getValues().map(r => String(r[0] ?? "").trim());
@@ -91,7 +91,7 @@ function moveFoundUsersToNewOU() {
             const oldOUNorm = normalizeOuPath_(oldOU);
             const newOUNorm = normalizeOuPath_(newOU);
 
-            // Пропускати, якщо однакові
+            // Skip if unchanged
             if (oldOUNorm && newOUNorm && oldOUNorm === newOUNorm) {
                 out.push(["SKIPPED", "Old OU equals new OU (L == M)"]);
                 continue;
@@ -116,7 +116,7 @@ function moveFoundUsersToNewOU() {
                     }
                 }
 
-                // Перенос
+                // Move
                 callWithRetry_(() =>
                     AdminDirectory.Users.update({ orgUnitPath: newOUNorm }, userKey),
                     MOVE_CONFIG.MAX_RETRIES
@@ -136,7 +136,7 @@ function moveFoundUsersToNewOU() {
             }
         }
 
-        // Запис результатів у N:O
+        // Write results to N:O
         sheet.getRange(MOVE_CONFIG.START_ROW, MOVE_CONFIG.COL_MOVE_STATUS, out.length, 2).setValues(out);
     }
 }

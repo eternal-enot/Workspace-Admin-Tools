@@ -69,7 +69,6 @@ function onFormSubmitAction_(e) {
 
       if (trRes.movedStudents > 0) {
         const sRes = runPreviewStudentsSilent_();
-        // Handle both old return (number) and new return ({count, results}) for safety during transition
         if (typeof sRes === 'object') {
           prevStudentsCount = sRes.count;
           studentResults = sRes.results || [];
@@ -98,10 +97,9 @@ function onFormSubmitAction_(e) {
         }
       }
 
-      // MERGE RESULTS into trRes.details
+      // Merge preview results into transfer details
       if (trRes.details && trRes.details.length > 0) {
         const allResults = [...studentResults, ...phdResults, ...staffResults];
-        // Map by personal email for quick lookup
         const resMap = new Map();
         for (const r of allResults) {
           if (r.personalEmail) resMap.set(r.personalEmail.toLowerCase(), r);
@@ -111,10 +109,8 @@ function onFormSubmitAction_(e) {
           if (!d.email) continue;
           const match = resMap.get(d.email.toLowerCase());
           if (match) {
-            // Update detail with latest info from Preview
             if (match.mode) d.mode = match.mode;
             if (match.error) d.error = match.error;
-            // If status is needed, we could add it, but 'mode' is usually what we show
           }
         }
       }
@@ -152,29 +148,7 @@ function runAutoDeployLogic_(details) {
 
   console.log('Auto-Deploy candidates:', candidates.length);
 
-  // We need to run process...ByMode_() for each sheet involved.
-  // Ideally, we mark them as DEPLOY in the sheet first?
-  // process...ByMode_() looks for 'DEPLOY' or 'PREVIEW' -> creates account -> marks EXECUTED.
-  // Wait, process...ByMode_() iterates ALL rows.
-  // So we just need to update the status in the sheet to 'DEPLOY' for these specific rows 
-  // and then call the process function.
-
-  // Actually, to be safe and precise, we should update the SHEET column A to 'DEPLOY' 
-  // for the rows corresponding to these candidates.
-  // But we don't have row indexes easily here in `details`... 
-  // We need to re-scan or pass row indexes from transfer?
-
-  // Optimization: `transfer...` returns details but not row indexes.
-  // Let's assume we can just run a helper that finds "PREVIEW" rows for these emails and flips them to DEPLOY.
-
-  // SIMPLER APPROACH:
-  // We just run a specialized function "promotePreviewToDeployAndRun()".
-  // But strictly per logic:
-  // 1. Open Sheets.
-  // 2. Find rows with Mode=PREVIEW and matches Candidate Email.
-  // 3. Set Mode=DEPLOY.
-  // 4. Run process...ByMode_().
-
+  // Mark matching PREVIEW rows as DEPLOY, then run process*ByMode_.
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const resReport = {
     processed: 0,
@@ -217,18 +191,12 @@ function runAutoDeployLogic_(details) {
   if (phd.length) markDeploy(APP_CONFIG.PHD_SHEET_NAME, phd);
   if (staff.length) markDeploy(APP_CONFIG.STAFF_SHEET_NAME, staff);
 
-  // NOW RUN PROCESS (It silently skips anything not DEPLOY)
-  // We capture console logs or just trust it works? 
-  // process...ByMode_ writes results to the sheet. We need to read them back to report?
-  // Or we modify process...ByMode_ to return stats? 
-  // Modifying process... functions is invasive. 
-  // Let's just run them, and then read the sheet AGAIN to check status of candidates?
-
+  // Run deploy processors (skip non-DEPLOY rows)
   if (sheetsToProcess.has(APP_CONFIG.STUDENTS_SHEET_NAME)) processStudentsByMode_();
   if (sheetsToProcess.has(APP_CONFIG.PHD_SHEET_NAME)) processPhdByMode_();
   if (sheetsToProcess.has(APP_CONFIG.STAFF_SHEET_NAME)) processStaffByMode_();
 
-  // CHECK FINAL STATUS
+  // Gather final status from the sheet for the report
   const gatherResults = (sheetName, emailList) => {
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) return;
@@ -242,9 +210,8 @@ function runAutoDeployLogic_(details) {
       const pEmail = String(row[SHEET_COLS.personalEmail - 1] || '').trim().toLowerCase();
 
       if (targetSet.has(pEmail)) {
-        const mode = String(row[SHEET_COLS.mode - 1] || '').trim().toUpperCase(); // EXECUTED or REJECT?
-        // Actually config says EXECUTED is success.
-        const status = String(row[SHEET_COLS.status - 1] || '').trim(); // CREATED / ERROR
+        const mode = String(row[SHEET_COLS.mode - 1] || '').trim().toUpperCase();
+        const status = String(row[SHEET_COLS.status - 1] || '').trim();
         const err = String(row[SHEET_COLS.error - 1] || '').trim();
         const name = `${row[SHEET_COLS.nameUa - 1]} ${row[SHEET_COLS.surnameUa - 1]}`;
 

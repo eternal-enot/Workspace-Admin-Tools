@@ -60,40 +60,24 @@ function reconcileStudents() {
             let surnameUa = "";
             let nameUa = "";
 
-            // 1. Check Email
-            if (!email) {
-                // Just a check, user didn't specify action for missing email output, 
-                // but implied checking it. We proceed to name matching.
-            }
-
-            // 2. Match with JSON
-            // Try exact text match or fuzzy? User said "search by surname name"
-            // We will look for a student in our group list
+            // Match by first/last name against STUDENTS_DATA (UA, then EN)
             const index = studentsToFind.findIndex(s =>
                 isNameMatch_(fName, lName, s.firstName, s.lastName) ||
-                isNameMatch_(fName, lName, s.firstNameEn, s.lastNameEn) // Fallback to EN match?
-                // Usually sheet has Ukrainian names in G/H, but let's stick to simple logic first
+                isNameMatch_(fName, lName, s.firstNameEn, s.lastNameEn)
             );
 
             if (index !== -1) {
-                // MATCH FOUND
                 const found = studentsToFind[index];
                 surnameUa = found.lastName;
                 nameUa = found.firstName;
 
-                // Remove from list so we know who is left
                 studentsToFind.splice(index, 1);
 
-                // If status was 'dropout', maybe clear it? Or leave it? 
-                // Implicitly if found, we don't mark dropout.
-                if (statusVal === "dropout") statusVal = "active"; // Restore active if found again
+                // Restore active if previously marked dropout
+                if (statusVal === "dropout") statusVal = "active";
 
-            } else {
-                // NO MATCH -> Potential Dropout
-                // Only mark if the row actually has a name
-                if (fName || lName) {
-                    statusVal = "dropout";
-                }
+            } else if (fName || lName) {
+                statusVal = "dropout";
             }
 
             outStatus.push([statusVal]);
@@ -108,29 +92,11 @@ function reconcileStudents() {
         // Col R, S (UA Names)
         sheet.getRange(2, RECONCILE_CONFIG.COL_UA_SURNAME, outUa.length, 2).setValues(outUa);
 
-        // 3. Handle "Lost" students (Remaining in studentsToFind)
+        // Append students missing from the sheet into columns R and S
         if (studentsToFind.length > 0) {
-            const newRows = studentsToFind.map(s => {
-                // Prepare a row. We only write to R and S.
-                // But we need to append.
-                // We can just set specific cells for the new rows.
-                return [s.lastName, s.firstName];
-            });
-
+            const newRows = studentsToFind.map(s => [s.lastName, s.firstName]);
             const startRow = lastRow + 1;
-            // We want to write into R and S.
-            // We can't use appendRow easily for specific columns in the middle without messing up others if not careful.
-            // But if we just assume empty rows below, we can write to R and S.
-
-            // However, to make them visible "rows", usually we might want to put something in A or F?
-            // User said: "insert surname and name into R and S (potential 'lost')"
-            // I will write them starting at the first new row.
-
-            if (newRows.length > 0) {
-                sheet.getRange(startRow, RECONCILE_CONFIG.COL_UA_SURNAME, newRows.length, 2).setValues(newRows);
-                // Maybe mark B as "MISSING_IN_SHEET"? User didn't ask, but helpful.
-                // User asked: "insert surname and name... that's it"
-            }
+            sheet.getRange(startRow, RECONCILE_CONFIG.COL_UA_SURNAME, newRows.length, 2).setValues(newRows);
         }
     }
 }

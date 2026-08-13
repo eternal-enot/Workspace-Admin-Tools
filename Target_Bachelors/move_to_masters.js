@@ -60,7 +60,7 @@ function helperMoveToMasters_(ss, toMasters) {
 }
 
 /**
- * Створює аркуш "До МАГІСТРІВ", якщо його ще немає.
+ * Creates the "До МАГІСТРІВ" sheet if it does not exist yet.
  */
 function ensureMastersSheet_(ss, lastCol) {
     let targetSheet = ss.getSheetByName(MASTERS_CFG.SHEET_NAME);
@@ -68,7 +68,7 @@ function ensureMastersSheet_(ss, lastCol) {
     if (!targetSheet) {
         targetSheet = ss.insertSheet(MASTERS_CFG.SHEET_NAME);
         
-        // Потрібно гарантувати щонайменше 14 колонок (до N)
+        // Ensure at least 14 columns (through N)
         const headerWidth = Math.max(lastCol, MASTERS_CFG.TIMESTAMP_COL);
         if (targetSheet.getMaxColumns() < headerWidth) {
             targetSheet.insertColumnsAfter(targetSheet.getMaxColumns(),
@@ -87,7 +87,7 @@ function ensureMastersSheet_(ss, lastCol) {
 }
 
 /**
- * Conditional formatting для колонки D на аркуші "До МАГІСТРІВ".
+ * Conditional formatting for column D on the "До МАГІСТРІВ" sheet.
  */
 function applyMastersFormatting_(targetSheet) {
     const maxRows = targetSheet.getMaxRows();
@@ -95,7 +95,7 @@ function applyMastersFormatting_(targetSheet) {
 
     const colD = targetSheet.getRange(2, MASTERS_CFG.DROPDOWN_COL, maxRows - 1, 1);
 
-    // Очищаємо старі правила
+    // Clear old rules
     targetSheet.clearConditionalFormatRules();
 
     const rules = [];

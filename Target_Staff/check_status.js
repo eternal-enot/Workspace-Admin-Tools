@@ -1,24 +1,24 @@
-/************** CONFIG (оновлено під нові колонки) **************/
+/************** CONFIGURATION (updated for new columns) **************/
 /**
- * Після вашої операції:
- *  - стара F -> нова A   (тут тепер Status / dropdown)
- *  - стара K -> нова B
- *  - нові C,D — порожні
- *  - стара B (User key/email) -> нова F
- *  - результати (ім'я/прізвище/емейли/логін/коментар/OU) логічно писати в G..L
+ * Structure mapping:
+ *  - Old F maps to New A (now Status dropdown)
+ *  - Old K maps to New B
+ *  - New C and D remain empty
+ *  - Old B (User key/email) maps to New F
+ *  - Results (name, emails, login, notes, OU) are written to columns G through L
  */
 const CONFIG = {
     TARGET_SHEET_NAME: "БР-21",
 
     START_ROW: 2,
 
-    // INPUT: стара B -> тепер F
+    // INPUT: old column B is now F
     INPUT_COL: 6, // F
 
-    // STATUS: стара F -> тепер A
+    // STATUS: old column F is now A
     STATUS_COL: 1, // A
 
-    // OUTPUT (без статусу): пишемо 6 колонок
+    // OUTPUT (excluding status): writing to 6 columns
     // G: First name
     // H: Last name
     // I: Recovery/extra email
@@ -30,8 +30,8 @@ const CONFIG = {
 
     SET_HEADERS: true,
 
-    // Якщо true — пропускати рядки, де в A (Status) або G..L вже є якісь значення,
-    // АЛЕ рядки зі статусом PENDING у колонці A НЕ пропускати.
+    // If true, skips rows where Status (A) or output columns (G..L) already contain data.
+    // However, rows marked as PENDING in column A will never be skipped.
     SKIP_IF_OUTPUT_EXISTS: false,
 
     PENDING_VALUE: "PENDING"
@@ -106,7 +106,7 @@ function checkUsersAndLastLogin_(processAll) {
             const rowHasAny = rowHasAnyValue_([currentStatusRaw, ...currentOut]);
 
             if (CONFIG.SKIP_IF_OUTPUT_EXISTS && rowHasAny && !isPending) {
-                // Пропускаємо — залишаємо як є
+                // Skip processing and leave existing values intact
                 statusOut.push([currentStatusRaw]);
                 out.push(currentOut);
                 continue;
@@ -152,12 +152,11 @@ function checkUsersAndLastLogin_(processAll) {
             }
         }
 
-        // Запис: статус окремо (A), решта полів — блоком (G..L)
+        // Write results: status in column A, other fields as a block in columns G..L
         sheet.getRange(CONFIG.START_ROW, CONFIG.STATUS_COL, n, 1).setValues(statusOut);
         sheet.getRange(CONFIG.START_ROW, CONFIG.OUTPUT_START_COL, n, CONFIG.OUTPUT_NUM_COLS).setValues(out);
     }
 }
-
 
 
 /************** HELPERS **************/

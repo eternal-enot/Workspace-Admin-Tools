@@ -24,8 +24,8 @@ const APP_CONFIG = {
   STAFF_SHEET_NAME: 'STAFF',
 
   // Form columns (1-based)
-  FORM_COL_ROLE: 2,          // B: "Студент / аспірант" | "Викладач / співробітник"
-  FORM_COL_RECOVERY_HINT: 3, // C: "Якщо ви вже маєте..." (Recovery Email Hint)
+  FORM_COL_ROLE: 2,          // B: role ("Студент / аспірант" | "Викладач / співробітник")
+  FORM_COL_RECOVERY_HINT: 3, // C: recovery email hint ("Якщо ви вже маєте...")
   FORM_COL_NAME_UA: 4,       // D
   FORM_COL_SURNAME_UA: 5,    // E
   FORM_COL_PATR_UA: 6,       // F
@@ -33,7 +33,7 @@ const APP_CONFIG = {
   FORM_COL_SURNAME_EN: 8,    // H
   FORM_COL_PERSONAL_EMAIL: 9,// I
   FORM_COL_GROUP: 10,        // J: group (students)
-  FORM_COL_DEPT: 11,         // K: кафедра (staff)
+  FORM_COL_DEPT: 11,         // K: department (staff)
 
   // Students base OU
   STUDENTS_BASE_OU: '/2. Факультети/ФБМІ',
@@ -55,7 +55,7 @@ const SHEET_COLS = {
   patrUa: 4,          // D
   nameEn: 5,          // E
   surnameEn: 6,       // F
-  groupOrDept: 7,     // G (group for students, кафедра for staff)
+  groupOrDept: 7,     // G (group for students, department for staff)
   personalEmail: 8,   // H
   genEmail: 9,        // I
   genOu: 10,          // J
@@ -226,9 +226,7 @@ function transferFromFormResponsesSilent_() {
     return null;
   }
 
-  // Ensure target sheets exist + headers
-  // REMOVED upfront calls: we will ensure them lazily below
-
+  // Target sheets are ensured lazily below
   const lastRow = formSheet.getLastRow();
   const lastCol = formSheet.getLastColumn();
   if (lastRow < 2) {
@@ -283,12 +281,10 @@ function transferFromFormResponsesSilent_() {
     // Check for PhD based on 'ф' in group (e.g. ЗК-41ф, ЗФ-31ф), ignoring Dept code prefixes (ЗФ-...)
     const isPhdGroup = /\d.*[фФ]/.test(groupVal);
 
-    // [UPDATED LOGIC]
-    // If role is "Студент / аспірант", it contains BOTH words.
-    // We should only force PhD if it's explicitly "Аспірант" (no "Student") OR if the group matches the regex.
+    // Combined form role "Студент / аспірант" contains both words.
+    // Treat as PhD only for explicit "Аспірант" (no "Студент") or PhD group pattern.
     const isPhD = (roleU.includes('АСПІРАНТ') && !roleU.includes('СТУДЕНТ')) || isPhdGroup;
 
-    // If matched PhD (by group or explicit role), then NOT a student.
     const isStudent = (roleU.includes('СТУДЕНТ')) && !isPhD;
 
     const isStaff = roleU.includes('ВИКЛАДАЧ') || roleU.includes('СПІВРОБІТ');
@@ -338,9 +334,6 @@ function transferFromFormResponsesSilent_() {
 
         if (linkedByRecovery === primary || linkedByWork === primary) {
           out[SHEET_COLS.mode - 1] = 'RECOVERY';
-          // Optionally add info to status/error?
-          // The user asked for "ACCOUNT_STATUS as RECOVERY". 
-          // We are setting MODE to RECOVERY. Let's set Status too just in case.
           out[SHEET_COLS.status - 1] = 'RECOVERY_CANDIDATE';
           out[SHEET_COLS.error - 1] = `Matched existing user: ${primary}`;
         } else {
@@ -431,9 +424,7 @@ function applyGlobalFormattingRules_(sheet) {
 
   const fullRange = sheet.getRange(2, 1, maxRows - 1, 15); // A2:O<Max>
 
-  // Clear OLD rules to prevent duplication/mess
-  // We filter out any rule that might conflict or just reset all?
-  // Since we manage this sheet, resetting is cleaner.
+  // Clear existing rules and rebuild (avoids duplicates)
   sheet.clearConditionalFormatRules();
 
   const rules = [];
@@ -712,28 +703,12 @@ function userExistsByDomainEmailOrAlias_(email) {
 }
 
 /**
- * Checks if the given email exists as a Recovery Email (Personal) for any user in the domain.
- * This ensures no two users share the same personal email.
- */
-/**
- * Fetches ALL users in the domain to build a lookup map:
- *   Map< personalEmail(lowercase) => primaryEmail >
+ * Builds a domain-wide user cache:
+ * - recoveryMap: recovery email -> primary
+ * - workMap: secondary/work email -> primary
+ * - corpMap: primary + aliases -> primary (GEN_EMAIL collision check)
  *
- * This is required because 'Users.list(query="recoveryEmail=...")'
- * is NOT supported by the API (returns Invalid Input or 0 results).
- */
-/**
- * Builds a comprehensive cache of all users in the domain:
- * 1) Recovery Emails (Personal inputs -> Existing User)
- * 2) Work/Secondary Emails (Personal inputs -> Existing User)
- * 3) All Corporate Emails (Primary + Aliases) -> To check GEN_EMAIL collisions
- *
- * Returns:
- * {
- *   recoveryMap: Map<email, primaryEmail>,
- *   workMap: Map<email, primaryEmail>,
- *   corpMap: Map<email, primaryEmail> // Checks collision for GEN_EMAIL
- * }
+ * Users.list(query="recoveryEmail=...") is not reliably supported by the API.
  */
 function fetchCompleteUserCache_() {
   const cache = {
@@ -744,8 +719,6 @@ function fetchCompleteUserCache_() {
 
   let pageToken = null;
 
-  // Optional: show toast
-  // SpreadsheetApp.getActiveSpreadsheet().toast('Завантаження бази користувачів...', 'Cache', 10);
 
   do {
     try {
@@ -786,9 +759,7 @@ function fetchCompleteUserCache_() {
             const addr = e.address.trim().toLowerCase();
             cache.workMap.set(addr, prim);
 
-            // Note: If an 'alias' is listed in emails[], it might be corporate. 
-            // Usually aliases are in u.aliases, but sometimes in emails with type='alias'.
-            // To be safe, if type exists and is 'alias', add to corpMap too.
+            // If emails[] has type 'alias', treat as corporate too.
             if (e.type === 'alias') {
               cache.corpMap.set(addr, prim);
             }
@@ -806,8 +777,6 @@ function fetchCompleteUserCache_() {
   return cache;
 }
 
-// Deprecated/Removed single-search function as it doesn't work reliably
-// function findUserByRecoveryEmail_(...) {}
 
 function debugTestSearch_() {
   const ui = SpreadsheetApp.getUi();
@@ -1005,7 +974,5 @@ function debugTestEmailCache_() {
 
   ui.alert(msg);
 }
-
-
 
 

@@ -159,7 +159,6 @@ function checkUsersAndLastLogin_(processAll) {
 }
 
 
-
 /************** HELPERS **************/
 
 function setHeaders_(sheet) {

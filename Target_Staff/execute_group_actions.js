@@ -154,7 +154,7 @@ function executeGroupActions_(processAll) {
                             AdminDirectory.Users.update({ primaryEmail: newEmail }, mainEmail);
                         }
                         
-                        // 2. Add old email as alias (Google usually does this automatically, explicitly adding just in case)
+                        // 2. Add old email as alias (Google often creates this automatically)
                         try {
                             // Wait a short moment to let the rename propagate before interacting with aliases
                             Utilities.sleep(1000);
@@ -323,7 +323,7 @@ function setupGroupActionsFormatting_(sheet) {
 }
 
 /**
- * Генерує HTML та Plain-текст листа про зміну адреси
+ * Builds HTML and plain-text email about address change
  */
 function getChangeEmailBody_(mainEmail, newEmail, isHtml) {
     if (!isHtml) {

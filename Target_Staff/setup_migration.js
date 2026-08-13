@@ -1,6 +1,6 @@
 /**
- * ТИМЧАСОВИЙ СКРИПТ ДЛЯ ОНОВЛЕННЯ ТАБЛИЦІ (Target_Staff)
- * Після успішного запуску цей файл можна видалити.
+ * TEMPORARY SCRIPT TO UPDATE THE SHEET (Target_Staff)
+ * You can safely delete this file once the run is complete.
  */
 
 function runOneTimeMigration() {
@@ -36,7 +36,7 @@ function runOneTimeMigration() {
     let updatedCount = 0;
 
     for (const sheet of sheets) {
-        // 1. Встановлюємо заголовки
+        // 1. Setup column headers
         const maxCols = sheet.getMaxColumns();
         if (maxCols < headers.length) {
             sheet.insertColumnsAfter(maxCols, headers.length - maxCols);
@@ -46,15 +46,15 @@ function runOneTimeMigration() {
 
         const lastRow = sheet.getLastRow();
         if (lastRow >= 2) {
-            // 2. Очищаємо старі правила перевірки даних (Data Validation), щоб уникнути помилок
+            // 2. Clear old Data Validation rules to avoid conflicts
             const dataRangeB = sheet.getRange(2, 2, lastRow - 1, 1);
             const dataRangeC = sheet.getRange(2, 3, lastRow - 1, 1);
             
             dataRangeB.clearDataValidations();
             dataRangeC.clearDataValidations();
             
-            // Оновлюємо старі значення 'false' на 'dropout' в колонці B
-            // Також заповнюємо порожні комірки B -> 'active', C -> 'IDLE'
+            // Update legacy 'false' values to 'dropout' in column B
+            // Fill empty cells: B becomes 'active', C becomes 'IDLE'
             const valsB = dataRangeB.getValues();
             const valsC = dataRangeC.getValues();
             
@@ -69,7 +69,7 @@ function runOneTimeMigration() {
                 }
                 
                 let cStr = String(valsC[i][0] || "").trim();
-                // Якщо порожньо, undefined або будь-яке інше старе значення, ставимо IDLE
+                // Default to IDLE if the cell is empty or contains an invalid value
                 if (!validActions.includes(cStr)) {
                     valsC[i][0] = "IDLE";
                 }
@@ -79,7 +79,7 @@ function runOneTimeMigration() {
             dataRangeC.setValues(valsC);
         }
 
-        // 3. Застосовуємо Data Validation та кольорове форматування
+        // 3. Apply Data Validation rules and conditional formatting
         if (typeof setupGroupActionsFormatting_ === 'function') {
             setupGroupActionsFormatting_(sheet);
         }

@@ -1,5 +1,5 @@
 /**
- * Перевіряє та створює всі відсутні каталоги (OU) по вказаному шляху.
+ * Checks and creates missing organizational units (OUs) along the provided path.
  */
 function archiveEnsureOrgUnit_(ouPath) {
     if (!ouPath || ouPath === "/") return;
@@ -51,7 +51,7 @@ function archiveEnsureOrgUnit_(ouPath) {
 }
 
 /**
- * Допоміжна функція для безпечного виклику API з повторними спробами (Retry Pattern).
+ * Helper to safely call Google APIs using an exponential backoff retry pattern.
  */
 function archiveCallWithRetry_(fn, maxRetries = 3) {
     let attempt = 0;

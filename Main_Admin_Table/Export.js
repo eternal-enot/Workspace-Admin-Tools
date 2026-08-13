@@ -22,10 +22,10 @@ const EMAIL_EXPORT_CFG = {
   TARGET_SPREADSHEETS: (PrivateConfigExport && PrivateConfigExport.EXPORT_TARGET_SPREADSHEETS)
     ? PrivateConfigExport.EXPORT_TARGET_SPREADSHEETS
     : {
-      BACHELORS: "REPLACE_WITH_BACHELORS_SHEET_ID", // ID таблиці бакалаврів
-      MASTERS: "REPLACE_WITH_MASTERS_SHEET_ID",   // ID таблиці магістрів
-      PHD: "REPLACE_WITH_PHD_SHEET_ID",       // ID таблиці аспірантів
-      STAFF: "REPLACE_WITH_STAFF_SHEET_ID",     // ID таблиці співробітників
+      BACHELORS: "REPLACE_WITH_BACHELORS_SHEET_ID", // Bachelors spreadsheet ID
+      MASTERS: "REPLACE_WITH_MASTERS_SHEET_ID",   // Masters spreadsheet ID
+      PHD: "REPLACE_WITH_PHD_SHEET_ID",       // PhD spreadsheet ID
+      STAFF: "REPLACE_WITH_STAFF_SHEET_ID",     // Staff spreadsheet ID
     },
 
   // Target Sheet Layout (after reorder in target)
@@ -34,9 +34,9 @@ const EMAIL_EXPORT_CFG = {
   DEST_STATUS_COL: 1,    // A (Status)
   DEST_COMMENT_COL: 11,  // K (Comment)
 
-  // PhD: єдиний аркуш замість окремих аркушів на групу
+  // PhD: single sheet instead of one sheet per group
   PHD_SINGLE_SHEET_NAME: "PhD",
-  PHD_GROUP_COL: 5,      // E — куди писати назву групи
+  PHD_GROUP_COL: 5,      // E — write group name here
 
   // Values to set in target
   STATUS_VALUE: "PENDING",
@@ -44,11 +44,11 @@ const EMAIL_EXPORT_CFG = {
 
 /**
  * Main function called from MenuItem
- * Переносить GEN_EMAIL у відповідну зовнішню таблицю (Бакалаври/Магістри/Співробітники):
- *  - визначає таблицю за типом аркуша та назвою групи
- *  - в колонку F (user key/email)
- *  - без дублікатів
- *  - оновлює статус (A) + коментар (K) тільки для доданих рядків
+ * Exports GEN_EMAIL to the matching target spreadsheet (Bachelors/Masters/Staff):
+ *  - picks the spreadsheet by sheet type and group name
+ *  - into column F (user key/email)
+ *  - without duplicates
+ *  - updates status (A) + comment (K) only for newly added rows
  */
 function exportGenEmailsToGroupSheets_() {
   const ui = SpreadsheetApp.getUi();
@@ -131,7 +131,7 @@ function exportGenEmailsToGroupSheets_() {
   const missingID = [];
   let totalAdded = 0;
 
-  // Визначаємо, чи це PhD (одна таблиця — один аркуш)
+  // Detect PhD (one spreadsheet — one sheet)
   const isPhdExport = (srcSheetName === APP_CONFIG.PHD_SHEET_NAME);
 
   for (const [groupName, emailSetLower] of grouped.entries()) {
@@ -150,7 +150,7 @@ function exportGenEmailsToGroupSheets_() {
     }
 
     if (isPhdExport) {
-      // PhD: завжди пишемо на єдиний аркуш, групу — в колонку E
+      // PhD: always write to the single sheet; group goes to column E
       const phdSheet = tgtSS.getSheetByName(EMAIL_EXPORT_CFG.PHD_SINGLE_SHEET_NAME);
       if (!phdSheet) {
         missingSheets.push(`${groupName} (sheet "${EMAIL_EXPORT_CFG.PHD_SINGLE_SHEET_NAME}" not found)`);
@@ -159,7 +159,7 @@ function exportGenEmailsToGroupSheets_() {
       const addedCount = insertEmailsIntoPhdSheet_(phdSheet, Array.from(emailSetLower), groupName);
       totalAdded += addedCount;
     } else {
-      // Bachelors / Masters / Staff: аркуш = назва групи
+      // Bachelors / Masters / Staff: sheet name = group name
       const targetSheet = findGroupSheet_(tgtSS, groupName);
 
       if (!targetSheet) {
@@ -200,7 +200,7 @@ function determineTargetSpreadsheetId_(sourceSheetName, groupName) {
   }
 
   // If we are processing STUDENTS sheet -> Check if Master or Bachelor
-  // We reuse the logic: if group contains 'мп' or 'мн' -> Master
+  // Masters groups contain 'мп' or 'мн'
   const g = String(groupName).toLowerCase();
   const isMaster = (g.includes('мп') || g.includes('мн'));
 
@@ -269,17 +269,17 @@ function insertEmailsIntoSheetWithStatus_(sheet, emailsLower, isStaffExport = fa
     }
   }
 
-  // Update статус/коментар ТІЛЬКИ для вставлених рядків
+  // Update status/comment ONLY for inserted rows
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_STATUS_COL, EMAIL_EXPORT_CFG.STATUS_VALUE); // A
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_COMMENT_COL, commentText); // K
   
-  // Дефолтні значення для випадаючих списків (Archive та trans_master)
+  // Default values for dropdowns (Archive and trans_master)
   writePerRowBatched_(sheet, rowsInserted, 2, true); // B (Archive = TRUE)
   if (!isStaffExport) {
       writePerRowBatched_(sheet, rowsInserted, 3, "undefined"); // C (trans_master = undefined)
   }
   
-  // Додаємо власне випадаючі списки (Data Validation) для нових рядків
+  // Add Data Validation dropdowns for new rows
   applyDropdownsToInsertedRows_(sheet, rowsInserted, isStaffExport);
 
   return rowsInserted.length;
@@ -374,15 +374,15 @@ function insertEmailsIntoPhdSheet_(sheet, emailsLower, groupName) {
     }
   }
 
-  // Update статус/коментар ТІЛЬКИ для вставлених рядків
+  // Update status/comment ONLY for inserted rows
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_STATUS_COL, EMAIL_EXPORT_CFG.STATUS_VALUE); // A
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_COMMENT_COL, commentText); // K
   
-  // Дефолтні значення для випадаючих списків
+  // Default values for dropdowns
   writePerRowBatched_(sheet, rowsInserted, 2, true); // B (Archive = TRUE)
   writePerRowBatched_(sheet, rowsInserted, 3, "undefined"); // C (trans_master = undefined)
 
-  // Додаємо власне випадаючі списки
+  // Add Data Validation dropdowns
   applyDropdownsToInsertedRows_(sheet, rowsInserted, false);
 
   return rowsInserted.length;
@@ -421,32 +421,32 @@ function candidateGroupSheetNames_(groupRaw) {
 }
 
 /**
- * Перетворює текстові клітинки в колонках A, B, C у Data Validation списки 
- * для визначених рядків. В ідеалі пробує скопіювати форматування з рядка 2,
- * якщо його там немає — створює жорстко задані списки (Hardcoded Fallback).
+ * Converts text cells in columns A, B, C into Data Validation lists 
+ * for the given rows. Prefers copying validation from row 2,
+ * otherwise falls back to hardcoded lists.
  */
 function applyDropdownsToInsertedRows_(sheet, rowsInserted, isStaffExpert) {
     if (!rowsInserted || rowsInserted.length === 0) return;
     
-    // Більшість часу ці рядки йдуть підряд, тому знаходимо загальний діапазон.
+    // Rows are usually contiguous, so use one combined range.
     const firstRow = Math.min(...rowsInserted);
     const lastRow = Math.max(...rowsInserted);
     const numRows = lastRow - firstRow + 1;
     
-    // Базові правила, якщо в рядку 2 порожньо:
+    // Fallback rules if row 2 has no validation:
     const ruleA_fallback = SpreadsheetApp.newDataValidation().requireValueInList(["FOUND", "NOT FOUND", "PENDING", "ERROR", "DELETED"], true).build();
     const ruleB_fallback = SpreadsheetApp.newDataValidation().requireValueInList(["TRUE", "FALSE"], true).build();
     const ruleC_fallback = SpreadsheetApp.newDataValidation().requireValueInList(["TRUE", "FALSE", "undefined"], true).build();
 
-    // Колонка A
+    // Column A
     let ruleA = sheet.getRange(2, 1).getDataValidation();
     sheet.getRange(firstRow, 1, numRows, 1).setDataValidation(ruleA || ruleA_fallback);
     
-    // Колонка B
+    // Column B
     let ruleB = sheet.getRange(2, 2).getDataValidation();
     sheet.getRange(firstRow, 2, numRows, 1).setDataValidation(ruleB || ruleB_fallback);
     
-    // Колонка C
+    // Column C
     if (!isStaffExpert) {
         let ruleC = sheet.getRange(2, 3).getDataValidation();
         sheet.getRange(firstRow, 3, numRows, 1).setDataValidation(ruleC || ruleC_fallback);

@@ -38,7 +38,7 @@ function runPreviewStaffSilent_() {
 
     const rangesToHighlight = [];
 
-    // [CACHE STRATEGY] Fetch all users once
+    // Fetch all users once
     const userCache = fetchCompleteUserCache_();
 
     const results = [];
@@ -67,7 +67,7 @@ function runPreviewStaffSilent_() {
       rangesToHighlight.push(rowIndex);
     }
 
-    // Apply Highlight (Light Yellow)
+    // Highlight previewed rows
     if (rangesToHighlight.length > 0) {
       for (const rIdx of rangesToHighlight) {
         sheet.getRange(rIdx, 1, 1, 15).setBackground('#fff9c4');
@@ -145,7 +145,7 @@ function processStaffByMode_() {
 
       // Existence checks
       if (userExistsByUserKey_(genEmail)) {
-        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
           status: 'EXISTS',
           createdAt: new Date(),
@@ -155,7 +155,7 @@ function processStaffByMode_() {
       }
 
       if (looksLikeEmail_(genRecovery) && userExistsByDomainEmailOrAlias_(genRecovery)) {
-        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
           status: 'EXISTS',
           createdAt: new Date(),
@@ -204,7 +204,7 @@ function processStaffByMode_() {
           sendCredentialsEmail_(genRecovery, created.primaryEmail || genEmail, genPassword, nameUa, surnameUa, 'staff');
         }
       } catch (e) {
-        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+        sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
           status: 'ERROR',
           error: String(e),
@@ -252,7 +252,7 @@ function previewStaffRow_(sheet, rowIndex, row, userCache) {
     if (userCache && userCache.recoveryMap.has(pEmail)) {
       const existingUser = userCache.recoveryMap.get(pEmail);
       const errorMsg = `User already exists (matched recovery email): ${existingUser}`;
-      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
       writeRowResultFixed_(sheet, rowIndex, {
         status: 'SKIP',
         error: errorMsg,
@@ -264,7 +264,7 @@ function previewStaffRow_(sheet, rowIndex, row, userCache) {
     if (userCache && userCache.workMap.has(pEmail)) {
       const existingUser = userCache.workMap.get(pEmail);
       const errorMsg = `User already exists (matched work/secondary email): ${existingUser}`;
-      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+      sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
       writeRowResultFixed_(sheet, rowIndex, {
         status: 'SKIP',
         error: errorMsg,
@@ -279,12 +279,12 @@ function previewStaffRow_(sheet, rowIndex, row, userCache) {
   // 2) Collision Check: Is GEN_EMAIL already taken?
   if (userCache && userCache.corpMap.has(genEmail)) {
     const errorMsg = `GEN_EMAIL CONFLICT: ${genEmail} is already active/alias. Manual intervention needed.`;
-    sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT'); // [UPDATED]
+    sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
     writeRowResultFixed_(sheet, rowIndex, {
       status: 'SKIP',
       error: errorMsg,
     });
-    // We populate GEN_* but mark as skipped/error so user sees why
+    // Still write GEN_* so the conflict is visible in the sheet
     sheet.getRange(rowIndex, SHEET_COLS.genEmail).setValue(genEmail);
     sheet.getRange(rowIndex, SHEET_COLS.genOu).setValue(orgUnitPath);
     sheet.getRange(rowIndex, SHEET_COLS.genRecovery).setValue(personalEmail);

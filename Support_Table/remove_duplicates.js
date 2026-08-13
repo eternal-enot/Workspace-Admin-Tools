@@ -15,21 +15,21 @@ function removeDuplicatesInCheck() {
         return;
     }
     
-    // Колонки A, B, C... Колонка C має індекс 3
+    // Columns A, B, C... Column C is index 3
     const colCIndex = 3;
     const data = sheet.getRange(1, colCIndex, lastRow, 1).getValues();
     
     const seenEmails = new Set();
     let rowsToDelete = [];
     
-    // Починаємо з другого рядка (індекс 1), пропускаючи заголовок
+    // Start from the second row (index 1), skip header
     for (let i = 1; i < data.length; i++) {
         const email = String(data[i][0] || "").trim().toLowerCase();
         
         if (!email) continue;
         
         if (seenEmails.has(email)) {
-            // Номер рядка в таблиці — це індекс масиву + 1
+            // Sheet row number = array index + 1
             rowsToDelete.push(i + 1);
         } else {
             seenEmails.add(email);
@@ -41,7 +41,7 @@ function removeDuplicatesInCheck() {
         return;
     }
     
-    // Видаляємо рядки з кінця до початку, щоб не збилися індекси
+    // Delete from bottom to top so indices stay valid
     rowsToDelete.reverse();
     
     for (const rowIndex of rowsToDelete) {

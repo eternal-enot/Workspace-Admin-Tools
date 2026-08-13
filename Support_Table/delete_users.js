@@ -54,7 +54,7 @@ function executeSupportDeletions() {
             AdminDirectory.Users.remove(email);
             
             row[SUPPORT_CFG.COL_STATUS - 1] = "DELETED";
-            // Очищуємо інші дані
+            // Clear other fields
             row[SUPPORT_CFG.COL_FIRST_NAME - 1] = "";
             row[SUPPORT_CFG.COL_LAST_NAME - 1] = "";
             row[SUPPORT_CFG.COL_EXTRA_EMAILS - 1] = "";
@@ -69,7 +69,7 @@ function executeSupportDeletions() {
         }
     }
 
-    // Зберігаємо змінені статуси
+    // Persist updated statuses
     dataRange.setValues(data);
 
     if (errors.length > 0) {
