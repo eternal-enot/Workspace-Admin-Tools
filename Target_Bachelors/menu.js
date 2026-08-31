@@ -13,6 +13,8 @@ function onOpen() {
         .addItem("Execute group actions (All Sheets)", "executeGroupActionsAllSheets")
         .addSeparator()
         .addItem("Reconcile Students (JSON vs Sheet)", "reconcileStudents")
+        .addSeparator()
+        .addItem("Надіслати тестовий лист (Зміна Email)", "sendTestChangeEmail")
         .addToUi();
 }
 
