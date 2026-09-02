@@ -54,7 +54,6 @@ function exportGenEmailsToGroupSheets_() {
   const ui = SpreadsheetApp.getUi();
   const srcSS = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Use configured sheet name if provided, else active sheet
   const srcSheet = EMAIL_EXPORT_CFG.SOURCE_SHEET_NAME
     ? srcSS.getSheetByName(EMAIL_EXPORT_CFG.SOURCE_SHEET_NAME)
     : srcSS.getActiveSheet();
@@ -63,7 +62,6 @@ function exportGenEmailsToGroupSheets_() {
 
   const srcSheetName = srcSheet.getName();
 
-  // Validate we are on a valid source sheet
   if (srcSheetName !== APP_CONFIG.STUDENTS_SHEET_NAME &&
     srcSheetName !== APP_CONFIG.STAFF_SHEET_NAME &&
     srcSheetName !== APP_CONFIG.PHD_SHEET_NAME) {
@@ -71,21 +69,65 @@ function exportGenEmailsToGroupSheets_() {
     return;
   }
 
-  const lastRow = srcSheet.getLastRow();
-  if (lastRow < 2) {
-    ui.alert("Немає даних (є тільки заголовок).");
+  const res = exportGenEmailsFromSheetSilent_(srcSheetName);
+  if (res.error) {
+    ui.alert(`❌ ${res.error}`);
     return;
   }
 
-  // Read the data range (assuming standard 15 columns as per Config.gc)
+  if (res.added === 0 && !res.missingID.length && !res.missingSheets.length) {
+    ui.alert("Немає GEN_EMAIL для переносу (або не проходить фільтр по статусу).");
+    return;
+  }
+
+  let msg = `✅ Готово. Додано адрес: ${res.added}`;
+
+  if (res.missingID.length) {
+    msg += `\n\n⚠️ Не знайдено ID таблиці (або помилка доступу) для:\n- ${res.missingID.join("\n- ")}`;
+  }
+  if (res.missingSheets.length) {
+    msg += `\n\n⚠️ Не знайдено аркуші (в цільовій таблиці) для:\n- ${res.missingSheets.join("\n- ")}`;
+  }
+
+  ui.alert(msg);
+}
+
+/**
+ * Silent export: pushes CREATED accounts from a source sheet to target spreadsheets.
+ * @param {string} srcSheetName - STUDENTS, PHD, or STAFF sheet name
+ * @param {Object} [options]
+ * @param {string[]} [options.emailsLower] - if set, export only these emails (e.g. just deployed)
+ * @returns {{ added: number, missingSheets: string[], missingID: string[], error?: string }}
+ */
+function exportGenEmailsFromSheetSilent_(srcSheetName, options) {
+  options = options || {};
+  const emailFilter = options.emailsLower
+    ? new Set(options.emailsLower.map(e => String(e || "").trim().toLowerCase()).filter(Boolean))
+    : null;
+
+  const srcSS = SpreadsheetApp.getActiveSpreadsheet();
+  const srcSheet = srcSS.getSheetByName(srcSheetName);
+  if (!srcSheet) {
+    return { added: 0, missingSheets: [], missingID: [], error: `Sheet not found: ${srcSheetName}` };
+  }
+
+  if (srcSheetName !== APP_CONFIG.STUDENTS_SHEET_NAME &&
+    srcSheetName !== APP_CONFIG.STAFF_SHEET_NAME &&
+    srcSheetName !== APP_CONFIG.PHD_SHEET_NAME) {
+    return { added: 0, missingSheets: [], missingID: [], error: `Invalid source sheet: ${srcSheetName}` };
+  }
+
+  const lastRow = srcSheet.getLastRow();
+  if (lastRow < 2) {
+    return { added: 0, missingSheets: [], missingID: [] };
+  }
+
   const data = srcSheet.getRange(2, 1, lastRow - 1, 15).getValues();
 
-  // Columns from Config.gc
-  const colGroup = SHEET_COLS.groupOrDept - 1;   // 6 (0-based)
-  const colEmail = SHEET_COLS.genEmail - 1;      // 8 (0-based)
-  const colStatus = SHEET_COLS.status - 1;       // 12 (0-based)
+  const colGroup = SHEET_COLS.groupOrDept - 1;
+  const colEmail = SHEET_COLS.genEmail - 1;
+  const colStatus = SHEET_COLS.status - 1;
 
-  // group -> Set(emails lower)
   const grouped = new Map();
 
   for (let i = 0; i < data.length; i++) {
@@ -96,7 +138,9 @@ function exportGenEmailsToGroupSheets_() {
 
     if (!groupRaw || !email) continue;
 
-    // Filter by status if requested
+    const emailLower = email.toLowerCase();
+    if (emailFilter && !emailFilter.has(emailLower)) continue;
+
     if (EMAIL_EXPORT_CFG.ONLY_IF_SOURCE_STATUS_IS) {
       const st = String(r[colStatus] || "").trim().toUpperCase();
       if (st !== EMAIL_EXPORT_CFG.ONLY_IF_SOURCE_STATUS_IS.toUpperCase()) continue;
@@ -104,15 +148,13 @@ function exportGenEmailsToGroupSheets_() {
 
     const key = groupRaw;
     if (!grouped.has(key)) grouped.set(key, new Set());
-    grouped.get(key).add(email.toLowerCase());
+    grouped.get(key).add(emailLower);
   }
 
   if (grouped.size === 0) {
-    ui.alert("Немає GEN_EMAIL для переносу (або не проходить фільтр по статусу).");
-    return;
+    return { added: 0, missingSheets: [], missingID: [] };
   }
 
-  // Cache open spreadsheets to avoid re-opening
   const openSpreadsheets = {};
   function getSpreadsheetById(id) {
     if (!id || id.includes("REPLACE")) return null;
@@ -131,11 +173,9 @@ function exportGenEmailsToGroupSheets_() {
   const missingID = [];
   let totalAdded = 0;
 
-  // Detect PhD (one spreadsheet — one sheet)
   const isPhdExport = (srcSheetName === APP_CONFIG.PHD_SHEET_NAME);
 
   for (const [groupName, emailSetLower] of grouped.entries()) {
-    // 1. Determine Target Spreadsheet ID
     const targetId = determineTargetSpreadsheetId_(srcSheetName, groupName);
 
     if (!targetId || targetId.includes("REPLACE")) {
@@ -150,38 +190,23 @@ function exportGenEmailsToGroupSheets_() {
     }
 
     if (isPhdExport) {
-      // PhD: always write to the single sheet; group goes to column E
       const phdSheet = tgtSS.getSheetByName(EMAIL_EXPORT_CFG.PHD_SINGLE_SHEET_NAME);
       if (!phdSheet) {
         missingSheets.push(`${groupName} (sheet "${EMAIL_EXPORT_CFG.PHD_SINGLE_SHEET_NAME}" not found)`);
         continue;
       }
-      const addedCount = insertEmailsIntoPhdSheet_(phdSheet, Array.from(emailSetLower), groupName);
-      totalAdded += addedCount;
+      totalAdded += insertEmailsIntoPhdSheet_(phdSheet, Array.from(emailSetLower), groupName);
     } else {
-      // Bachelors / Masters / Staff: sheet name = group name
       const targetSheet = findGroupSheet_(tgtSS, groupName);
-
       if (!targetSheet) {
         missingSheets.push(groupName);
         continue;
       }
-
-      const addedCount = insertEmailsIntoSheetWithStatus_(targetSheet, Array.from(emailSetLower));
-      totalAdded += addedCount;
+      totalAdded += insertEmailsIntoSheetWithStatus_(targetSheet, Array.from(emailSetLower));
     }
   }
 
-  let msg = `✅ Готово. Додано адрес: ${totalAdded}`;
-
-  if (missingID.length) {
-    msg += `\n\n⚠️ Не знайдено ID таблиці (або помилка доступу) для:\n- ${missingID.join("\n- ")}`;
-  }
-  if (missingSheets.length) {
-    msg += `\n\n⚠️ Не знайдено аркуші (в цільовій таблиці) для:\n- ${missingSheets.join("\n- ")}`;
-  }
-
-  ui.alert(msg);
+  return { added: totalAdded, missingSheets, missingID };
 }
 
 /**

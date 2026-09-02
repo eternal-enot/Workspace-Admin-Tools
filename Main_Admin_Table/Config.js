@@ -525,6 +525,21 @@ function resolveDeptFromGroup_(groupRaw) {
   return 'Інше';
 }
 
+/**
+ * Google Workspace display name for students (bachelors, masters, PhD):
+ * givenName = "Group Surname", familyName = "Name Patronymic"
+ */
+function buildStudentWorkspaceName_(groupOrDept, surnameUa, nameUa, patrUa) {
+  const group = String(groupOrDept || '').trim();
+  const surname = String(surnameUa || '').trim();
+  const name = String(nameUa || '').trim();
+  const patronymic = String(patrUa || '').trim();
+  return {
+    givenName: [group, surname].filter(Boolean).join(' '),
+    familyName: [name, patronymic].filter(Boolean).join(' ')
+  };
+}
+
 function looksLikeEmail_(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
 }

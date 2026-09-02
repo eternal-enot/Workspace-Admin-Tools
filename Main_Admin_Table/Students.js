@@ -98,6 +98,7 @@ function processStudentsByMode_() {
 
     const n = lastRow - 1;
     const rows = sheet.getRange(2, 1, n, 15).getValues();
+    const createdEmails = [];
 
     for (let i = 0; i < n; i++) {
       const rowIndex = i + 2;
@@ -166,6 +167,8 @@ function processStudentsByMode_() {
 
       const nameUa = String(row[SHEET_COLS.nameUa - 1] || '').trim();
       const surnameUa = String(row[SHEET_COLS.surnameUa - 1] || '').trim();
+      const patrUa = String(row[SHEET_COLS.patrUa - 1] || '').trim();
+      const groupOrDept = String(row[SHEET_COLS.groupOrDept - 1] || '').trim();
 
       if (!nameUa || !surnameUa) {
         writeRowResultFixed_(sheet, rowIndex, {
@@ -175,9 +178,19 @@ function processStudentsByMode_() {
         continue;
       }
 
+      if (!groupOrDept) {
+        writeRowResultFixed_(sheet, rowIndex, {
+          status: 'ERROR',
+          error: 'Missing group in input columns for profile.',
+        });
+        continue;
+      }
+
+      const wsName = buildStudentWorkspaceName_(groupOrDept, surnameUa, nameUa, patrUa);
+
       const userResource = {
         primaryEmail: genEmail.toLowerCase(),
-        name: { givenName: nameUa, familyName: surnameUa },
+        name: { givenName: wsName.givenName, familyName: wsName.familyName },
         password: genPassword,
         orgUnitPath: genOu,
         recoveryEmail: genRecovery,
@@ -203,6 +216,8 @@ function processStudentsByMode_() {
         if (APP_CONFIG.SEND_CREDENTIALS_EMAIL) {
           sendCredentialsEmail_(genRecovery, created.primaryEmail || genEmail, genPassword, nameUa, surnameUa, 'student');
         }
+
+        createdEmails.push(genEmail.toLowerCase());
       } catch (e) {
         sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
@@ -214,7 +229,23 @@ function processStudentsByMode_() {
       Utilities.sleep(APP_CONFIG.SLEEP_MS_BETWEEN_CALLS);
     }
 
-    SpreadsheetApp.getUi().alert(`✅ Обробка завершена для "${sheetName}". Створено лише рядки з ACCOUNT_MODE=DEPLOY.`);
+    let exportMsg = '';
+    if (createdEmails.length > 0) {
+      try {
+        const exportRes = exportGenEmailsFromSheetSilent_(sheetName, { emailsLower: createdEmails });
+        exportMsg = `\n\nПеренесено в target-таблицю: ${exportRes.added} адрес.`;
+        if (exportRes.missingID.length) {
+          exportMsg += `\n⚠️ Немає ID таблиці для: ${exportRes.missingID.join(', ')}`;
+        }
+        if (exportRes.missingSheets.length) {
+          exportMsg += `\n⚠️ Немає аркуша для: ${exportRes.missingSheets.join(', ')}`;
+        }
+      } catch (exportErr) {
+        exportMsg = `\n\n⚠️ Помилка переносу в target-таблицю: ${exportErr.message || exportErr}`;
+      }
+    }
+
+    SpreadsheetApp.getUi().alert(`✅ Обробка завершена для "${sheetName}". Створено лише рядки з ACCOUNT_MODE=DEPLOY.${exportMsg}`);
   } finally {
     lock.releaseLock();
   }

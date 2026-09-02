@@ -98,6 +98,7 @@ function processStaffByMode_() {
 
     const n = lastRow - 1;
     const rows = sheet.getRange(2, 1, n, 15).getValues();
+    const createdEmails = [];
 
     for (let i = 0; i < n; i++) {
       const rowIndex = i + 2;
@@ -203,6 +204,8 @@ function processStaffByMode_() {
         if (APP_CONFIG.SEND_CREDENTIALS_EMAIL) {
           sendCredentialsEmail_(genRecovery, created.primaryEmail || genEmail, genPassword, nameUa, surnameUa, 'staff');
         }
+
+        createdEmails.push(genEmail.toLowerCase());
       } catch (e) {
         sheet.getRange(rowIndex, SHEET_COLS.mode).setValue('REJECT');
         writeRowResultFixed_(sheet, rowIndex, {
@@ -214,7 +217,23 @@ function processStaffByMode_() {
       Utilities.sleep(APP_CONFIG.SLEEP_MS_BETWEEN_CALLS);
     }
 
-    SpreadsheetApp.getUi().alert(`✅ Обробка завершена для "${sheetName}". Створено лише рядки з ACCOUNT_MODE=DEPLOY.`);
+    let exportMsg = '';
+    if (createdEmails.length > 0) {
+      try {
+        const exportRes = exportGenEmailsFromSheetSilent_(sheetName, { emailsLower: createdEmails });
+        exportMsg = `\n\nПеренесено в target-таблицю: ${exportRes.added} адрес.`;
+        if (exportRes.missingID.length) {
+          exportMsg += `\n⚠️ Немає ID таблиці для: ${exportRes.missingID.join(', ')}`;
+        }
+        if (exportRes.missingSheets.length) {
+          exportMsg += `\n⚠️ Немає аркуша для: ${exportRes.missingSheets.join(', ')}`;
+        }
+      } catch (exportErr) {
+        exportMsg = `\n\n⚠️ Помилка переносу в target-таблицю: ${exportErr.message || exportErr}`;
+      }
+    }
+
+    SpreadsheetApp.getUi().alert(`✅ Обробка завершена для "${sheetName}". Створено лише рядки з ACCOUNT_MODE=DEPLOY.${exportMsg}`);
   } finally {
     lock.releaseLock();
   }
