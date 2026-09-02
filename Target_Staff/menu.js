@@ -4,7 +4,7 @@
 function onOpen() {
     SpreadsheetApp.getUi()
         .createMenu("Admin tools")
-        .addItem("🚀 РАЗОВА МІГРАЦІЯ (Оновити таблицю)", "runOneTimeMigration")
+        .addItem("Оновити вигляд таблиці (All Sheets)", "updateSheetLayout_")
         .addSeparator()
         .addItem("Update Status (Active Sheet)", "checkUsersActiveSheet")
         .addItem("Update Status (All Sheets)", "checkUsersAllSheets")

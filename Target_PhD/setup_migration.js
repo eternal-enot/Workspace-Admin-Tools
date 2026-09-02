@@ -1,9 +1,8 @@
 /**
- * TEMPORARY SCRIPT TO UPDATE THE SHEET (Target_PhD)
- * You can safely delete this file once the run is complete.
+ * Syncs sheet headers, data validation, and formatting with the current script.
  */
 
-function runOneTimeMigration() {
+function updateSheetLayout_() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheets = ss.getSheets().filter(s => 
         s.getName() !== "Архів" && 
@@ -87,5 +86,14 @@ function runOneTimeMigration() {
         updatedCount++;
     }
 
-    SpreadsheetApp.getUi().alert(`✅ Migration successfully completed!\nSheets updated: ${updatedCount}.\n\nYou can now delete the "setup_migration.js" script and its menu button.`);
+    SpreadsheetApp.getUi().alert(
+        `✅ Sheet layout updated.\n` +
+        `Sheets updated: ${updatedCount}.\n` +
+        `Headers, actions, and formatting synced with the script.`
+    );
+}
+
+/** @deprecated Use updateSheetLayout_ */
+function runOneTimeMigration() {
+    updateSheetLayout_();
 }

@@ -167,8 +167,7 @@ function exportGenEmailsToGroupSheets_() {
         continue;
       }
 
-      const isStaffExport = (targetId === EMAIL_EXPORT_CFG.TARGET_SPREADSHEETS.STAFF);
-      const addedCount = insertEmailsIntoSheetWithStatus_(targetSheet, Array.from(emailSetLower), isStaffExport);
+      const addedCount = insertEmailsIntoSheetWithStatus_(targetSheet, Array.from(emailSetLower));
       totalAdded += addedCount;
     }
   }
@@ -212,7 +211,7 @@ function determineTargetSpreadsheetId_(sourceSheetName, groupName) {
 }
 
 /** ---- Core: insert emails into DEST_EMAIL_COL, avoid duplicates, update status/comment for inserted rows ---- */
-function insertEmailsIntoSheetWithStatus_(sheet, emailsLower, isStaffExport = false) {
+function insertEmailsIntoSheetWithStatus_(sheet, emailsLower) {
   const lastRow = sheet.getLastRow();
   const start = EMAIL_EXPORT_CFG.DEST_START_ROW;
 
@@ -273,14 +272,12 @@ function insertEmailsIntoSheetWithStatus_(sheet, emailsLower, isStaffExport = fa
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_STATUS_COL, EMAIL_EXPORT_CFG.STATUS_VALUE); // A
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_COMMENT_COL, commentText); // K
   
-  // Default values for dropdowns (Archive and trans_master)
-  writePerRowBatched_(sheet, rowsInserted, 2, true); // B (Archive = TRUE)
-  if (!isStaffExport) {
-      writePerRowBatched_(sheet, rowsInserted, 3, "undefined"); // C (trans_master = undefined)
-  }
+  // Default values for new schema: B = record_type, C = actions
+  writePerRowBatched_(sheet, rowsInserted, 2, "active"); // B (record_type)
+  writePerRowBatched_(sheet, rowsInserted, 3, "IDLE"); // C (actions)
   
   // Add Data Validation dropdowns for new rows
-  applyDropdownsToInsertedRows_(sheet, rowsInserted, isStaffExport);
+  applyDropdownsToInsertedRows_(sheet, rowsInserted);
 
   return rowsInserted.length;
 }
@@ -378,12 +375,12 @@ function insertEmailsIntoPhdSheet_(sheet, emailsLower, groupName) {
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_STATUS_COL, EMAIL_EXPORT_CFG.STATUS_VALUE); // A
   writePerRowBatched_(sheet, rowsInserted, EMAIL_EXPORT_CFG.DEST_COMMENT_COL, commentText); // K
   
-  // Default values for dropdowns
-  writePerRowBatched_(sheet, rowsInserted, 2, true); // B (Archive = TRUE)
-  writePerRowBatched_(sheet, rowsInserted, 3, "undefined"); // C (trans_master = undefined)
+  // Default values for new schema: B = record_type, C = actions
+  writePerRowBatched_(sheet, rowsInserted, 2, "active"); // B (record_type)
+  writePerRowBatched_(sheet, rowsInserted, 3, "IDLE"); // C (actions)
 
   // Add Data Validation dropdowns
-  applyDropdownsToInsertedRows_(sheet, rowsInserted, false);
+  applyDropdownsToInsertedRows_(sheet, rowsInserted);
 
   return rowsInserted.length;
 }
@@ -421,34 +418,26 @@ function candidateGroupSheetNames_(groupRaw) {
 }
 
 /**
- * Converts text cells in columns A, B, C into Data Validation lists 
- * for the given rows. Prefers copying validation from row 2,
- * otherwise falls back to hardcoded lists.
+ * Copies Data Validation from row 2 onto inserted rows.
+ * Falls back to sensible defaults when row 2 has no validation yet.
  */
-function applyDropdownsToInsertedRows_(sheet, rowsInserted, isStaffExpert) {
+function applyDropdownsToInsertedRows_(sheet, rowsInserted) {
     if (!rowsInserted || rowsInserted.length === 0) return;
     
-    // Rows are usually contiguous, so use one combined range.
     const firstRow = Math.min(...rowsInserted);
     const lastRow = Math.max(...rowsInserted);
     const numRows = lastRow - firstRow + 1;
     
-    // Fallback rules if row 2 has no validation:
-    const ruleA_fallback = SpreadsheetApp.newDataValidation().requireValueInList(["FOUND", "NOT FOUND", "PENDING", "ERROR", "DELETED"], true).build();
-    const ruleB_fallback = SpreadsheetApp.newDataValidation().requireValueInList(["TRUE", "FALSE"], true).build();
-    const ruleC_fallback = SpreadsheetApp.newDataValidation().requireValueInList(["TRUE", "FALSE", "undefined"], true).build();
+    const ruleA_fallback = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["FOUND", "NOT FOUND", "PENDING", "ERROR", "DELETED"], true)
+        .build();
+    const ruleC_fallback = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["IDLE"], true)
+        .build();
 
-    // Column A
-    let ruleA = sheet.getRange(2, 1).getDataValidation();
+    const ruleA = sheet.getRange(2, 1).getDataValidation();
     sheet.getRange(firstRow, 1, numRows, 1).setDataValidation(ruleA || ruleA_fallback);
     
-    // Column B
-    let ruleB = sheet.getRange(2, 2).getDataValidation();
-    sheet.getRange(firstRow, 2, numRows, 1).setDataValidation(ruleB || ruleB_fallback);
-    
-    // Column C
-    if (!isStaffExpert) {
-        let ruleC = sheet.getRange(2, 3).getDataValidation();
-        sheet.getRange(firstRow, 3, numRows, 1).setDataValidation(ruleC || ruleC_fallback);
-    }
+    const ruleC = sheet.getRange(2, 3).getDataValidation();
+    sheet.getRange(firstRow, 3, numRows, 1).setDataValidation(ruleC || ruleC_fallback);
 }

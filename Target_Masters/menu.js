@@ -4,7 +4,7 @@
 function onOpen() {
     SpreadsheetApp.getUi()
         .createMenu("Admin tools")
-        .addItem("🚀 РАЗОВА МІГРАЦІЯ (Оновити таблицю)", "runOneTimeMigration")
+        .addItem("Оновити вигляд таблиці (All Sheets)", "updateSheetLayout_")
         .addSeparator()
         .addItem("Update Status (Active Sheet)", "checkUsersActiveSheet")
         .addItem("Update Status (All Sheets)", "checkUsersAllSheets")
@@ -13,5 +13,7 @@ function onOpen() {
         .addItem("Execute group actions (All Sheets)", "executeGroupActionsAllSheets")
         .addSeparator()
         .addItem("Reconcile Students (JSON vs Sheet)", "reconcileStudents")
+        .addSeparator()
+        .addItem("Надіслати тестовий лист (Зміна Email)", "sendTestChangeEmail")
         .addToUi();
 }

@@ -1,122 +1,139 @@
-/************** MASTERS TRANSFER CONFIG **************/
-const MASTERS_CFG = {
-    SHEET_NAME: "Архів", // Об'єднано з архівом
-    CHECK_COL: 3,    // C — якщо "master" → переносити
-    RECORD_TYPE_COL: 3, // C — тип запису на цільовому аркуші
-    DROPDOWN_COL: 4, // D — actions
-    SOURCE_COL: 2,   // B — Source
-    TIMESTAMP_COL: 14, // N — Надіслано
-    START_ROW: 2,    // пропускаємо заголовок
-    COL_A: 1,
-    COL_B: 2,
-    COL_C: 3,
-    MAX_COLUMNS_TO_COPY: 12, // Копіюємо з A по L
-    DROPDOWN_VALUES: ["IDLE", "Move to OU", "Notify Deletion", "Delete Account", "Restore"],
-    DROPDOWN_COLORS: {
-        "IDLE":            "#fff9c4",  // жовтий
-        "Move to OU":      "#ffcc80",  // оранжевий
-        "Notify Deletion": "#ce93d8",  // фіолетовий
-        "Delete Account":  "#ef9a9a",  // червоний
-        "Restore":         "#c8e6c9"   // зелений
-    }
+const MASTERS_TRANSFER_CFG = {
+    DEST_EMAIL_COL: 6,     // F
+    DEST_START_ROW: 2,
+    DEST_STATUS_COL: 1,    // A
+    DEST_COMMENT_COL: 11,  // K
+    STATUS_VALUE: "PENDING",
 };
 
-function helperMoveToMasters_(ss, toMasters) {
-    if (toMasters.length === 0) return 0;
-    
-    const targetSheet = ensureMastersSheet_(ss, toMasters[0].data.length);
-    
-    // Sort forward
-    const sortedRows = [...toMasters].reverse();
-    
-    const targetLastRow = targetSheet.getLastRow();
-    const appendStart = Math.max(targetLastRow + 1, 2);
-    const width = Math.max(toMasters[0].data.length, MASTERS_CFG.TIMESTAMP_COL);
-    
-    const values = sortedRows.map(r => {
-        let d = r.data.slice(0, MASTERS_CFG.MAX_COLUMNS_TO_COPY);
-        while (d.length < width) d.push("");
-        
-        d[MASTERS_CFG.RECORD_TYPE_COL - 1] = "master"; // C
-        d[MASTERS_CFG.DROPDOWN_COL - 1] = "IDLE"; // D
-        d[MASTERS_CFG.SOURCE_COL - 1] = r.sourceName; // B
-        
-        return d.slice(0, width);
-    });
-    
-    targetSheet.getRange(appendStart, 1, values.length, width).setValues(values);
-    
-    const dropdownRange = targetSheet.getRange(appendStart, MASTERS_CFG.DROPDOWN_COL, values.length, 1);
-    const rule = SpreadsheetApp.newDataValidation()
-        .requireValueInList(MASTERS_CFG.DROPDOWN_VALUES, true)
-        .setAllowInvalid(false)
-        .build();
-    dropdownRange.setDataValidation(rule);
-    dropdownRange.setBackground(MASTERS_CFG.DROPDOWN_COLORS["IDLE"]);
-    
-    applyMastersFormatting_(targetSheet);
-    
-    return values.length;
+function getMastersSpreadsheetId_() {
+    if (typeof PRIVATE_CONFIG !== "undefined" && PRIVATE_CONFIG.MASTERS_SPREADSHEET_ID) {
+        const id = String(PRIVATE_CONFIG.MASTERS_SPREADSHEET_ID).trim();
+        if (id && !id.includes("REPLACE")) return id;
+    }
+    return "";
 }
 
 /**
- * Creates the "До МАГІСТРІВ" sheet if it does not exist yet.
+ * Inserts email into the Masters target spreadsheet on the sheet matching groupName.
+ * Skips if the email already exists on that sheet.
  */
-function ensureMastersSheet_(ss, lastCol) {
-    let targetSheet = ss.getSheetByName(MASTERS_CFG.SHEET_NAME);
+function transferEmailToMastersSpreadsheet_(email, groupName) {
+    const spreadsheetId = getMastersSpreadsheetId_();
+    if (!spreadsheetId) {
+        throw new Error("MASTERS_SPREADSHEET_ID is not configured in Secrets.js (and was not deployed — run clasp push after adding .claspignore)");
+    }
 
+    const groupRaw = String(groupName || "").trim();
+    if (!groupRaw) throw new Error("Missing target master group (Col E)");
+
+    const emailLower = String(email || "").trim().toLowerCase();
+    if (!emailLower || !emailLower.includes("@")) {
+        throw new Error("Missing or invalid email (Col F)");
+    }
+
+    let tgtSS;
+    try {
+        tgtSS = SpreadsheetApp.openById(spreadsheetId);
+    } catch (e) {
+        throw new Error(`Cannot open Masters spreadsheet: ${e.message}`);
+    }
+
+    const targetSheet = findMastersGroupSheet_(tgtSS, groupRaw);
     if (!targetSheet) {
-        targetSheet = ss.insertSheet(MASTERS_CFG.SHEET_NAME);
-        
-        // Ensure at least 14 columns (through N)
-        const headerWidth = Math.max(lastCol, MASTERS_CFG.TIMESTAMP_COL);
-        if (targetSheet.getMaxColumns() < headerWidth) {
-            targetSheet.insertColumnsAfter(targetSheet.getMaxColumns(),
-                headerWidth - targetSheet.getMaxColumns());
+        throw new Error(`Sheet not found in Masters spreadsheet for group "${groupRaw}"`);
+    }
+
+    insertEmailIntoMastersSheet_(targetSheet, emailLower, groupRaw);
+}
+
+function buildMasterOuPath_(groupRaw) {
+    const g = normalizeGroupTypos_(groupRaw);
+    let groupForOu = g.toUpperCase().replace(/МП/g, "мп").replace(/МН/g, "мн");
+    const dept = resolveDeptFromGroup_(g);
+    return `/2. Факультети/ФБМІ/${dept}/2. Магістратура/${groupForOu}`;
+}
+
+function findMastersGroupSheet_(ss, groupRaw) {
+    const candidates = candidateMastersGroupSheetNames_(groupRaw);
+    for (const name of candidates) {
+        const sh = ss.getSheetByName(name);
+        if (sh) return sh;
+    }
+    return null;
+}
+
+function candidateMastersGroupSheetNames_(groupRaw) {
+    const g = String(groupRaw || "").trim();
+    if (!g) return [];
+    const u = g.toUpperCase();
+
+    const candidates = [g, u];
+    const mpMnVariant = u.replace(/МП/g, "мп").replace(/МН/g, "мн");
+    candidates.push(mpMnVariant);
+
+    const seen = new Set();
+    const out = [];
+    for (const x of candidates) {
+        if (x && !seen.has(x)) {
+            seen.add(x);
+            out.push(x);
         }
-        targetSheet.getRange(1, MASTERS_CFG.RECORD_TYPE_COL).setValue("record_type");
-        targetSheet.getRange(1, MASTERS_CFG.DROPDOWN_COL).setValue("actions");
-        targetSheet.getRange(1, MASTERS_CFG.SOURCE_COL).setValue("Source");
-        targetSheet.getRange(1, MASTERS_CFG.TIMESTAMP_COL).setValue("Надіслано");
-        targetSheet.setFrozenRows(1);
+    }
+    return out;
+}
 
-        applyMastersFormatting_(targetSheet);
+function insertEmailIntoMastersSheet_(sheet, emailLower, groupName) {
+    const start = MASTERS_TRANSFER_CFG.DEST_START_ROW;
+    const colKey = MASTERS_TRANSFER_CFG.DEST_EMAIL_COL;
+    const lastRow = sheet.getLastRow();
+
+    let existing = [];
+    if (lastRow >= start) {
+        existing = sheet
+            .getRange(start, colKey, lastRow - start + 1, 1)
+            .getValues()
+            .map(r => String(r[0] || "").trim().toLowerCase());
     }
 
-    return targetSheet;
-}
+    if (existing.some(e => e === emailLower)) return;
 
-/**
- * Conditional formatting for column D on the "До МАГІСТРІВ" sheet.
- */
-function applyMastersFormatting_(targetSheet) {
-    const maxRows = targetSheet.getMaxRows();
-    if (maxRows < 2) return;
+    const now = new Date();
+    const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+    const stamp = Utilities.formatDate(now, tz, "yyyy-MM-dd HH:mm:ss");
+    const commentText = `Transferred from Bachelors: ${stamp} (group ${groupName})`;
 
-    const colD = targetSheet.getRange(2, MASTERS_CFG.DROPDOWN_COL, maxRows - 1, 1);
-
-    // Clear old rules
-    targetSheet.clearConditionalFormatRules();
-
-    const rules = [];
-
-    for (const val of MASTERS_CFG.DROPDOWN_VALUES) {
-        rules.push(SpreadsheetApp.newConditionalFormatRule()
-            .whenTextEqualTo(val)
-            .setBackground(MASTERS_CFG.DROPDOWN_COLORS[val])
-            .setRanges([colD])
-            .build());
+    let rowIndex = null;
+    for (let i = 0; i < existing.length; i++) {
+        if (!existing[i]) {
+            rowIndex = start + i;
+            break;
+        }
+    }
+    if (!rowIndex) {
+        rowIndex = Math.max(sheet.getLastRow() + 1, start);
     }
 
-    targetSheet.setConditionalFormatRules(rules);
+    sheet.getRange(rowIndex, colKey).setValue(emailLower);
+    sheet.getRange(rowIndex, MASTERS_TRANSFER_CFG.DEST_STATUS_COL).setValue(MASTERS_TRANSFER_CFG.STATUS_VALUE);
+    sheet.getRange(rowIndex, 2).setValue("active");
+    sheet.getRange(rowIndex, 3).setValue("IDLE");
+    sheet.getRange(rowIndex, MASTERS_TRANSFER_CFG.DEST_COMMENT_COL).setValue(commentText);
+
+    applyMastersRowDropdowns_(sheet, rowIndex);
 }
 
-function copyColValidationMasters_(srcSheet, dstSheet, col, dstStartRow, numRows) {
-    const srcValidation = srcSheet.getRange(MASTERS_CFG.START_ROW, col).getDataValidation();
-    if (!srcValidation) return;
+function applyMastersRowDropdowns_(sheet, rowIndex) {
+    const ruleA = sheet.getRange(2, 1).getDataValidation();
+    const ruleC = sheet.getRange(2, 3).getDataValidation();
 
-    const dstRange = dstSheet.getRange(dstStartRow, col, numRows, 1);
-    dstRange.setDataValidation(srcValidation);
+    const ruleA_fallback = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["FOUND", "NOT FOUND", "PENDING", "ERROR", "DELETED"], true)
+        .build();
+    const ruleC_fallback = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["IDLE"], true)
+        .build();
+
+    sheet.getRange(rowIndex, 1).setDataValidation(ruleA || ruleA_fallback);
+    sheet.getRange(rowIndex, 3).setDataValidation(ruleC || ruleC_fallback);
 }
-
-

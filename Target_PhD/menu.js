@@ -4,7 +4,7 @@
 function onOpen() {
     SpreadsheetApp.getUi()
         .createMenu("Admin tools")
-        .addItem("🚀 ONE-TIME MIGRATION (Update Sheet)", "runOneTimeMigration")
+        .addItem("Update sheet layout (All Sheets)", "updateSheetLayout_")
         .addSeparator()
         .addItem("Update Status (Active Sheet)", "checkUsersActiveSheet")
         .addItem("Update Status (All Sheets)", "checkUsersAllSheets")

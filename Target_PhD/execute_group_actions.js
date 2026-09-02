@@ -21,21 +21,25 @@ function executeGroupActionsAllSheets() {
     executeGroupActions_(true);
 }
 
+function normalizeGroupTypos_(groupRaw) {
+    let s = String(groupRaw || '').trim();
+    if (!s) return s;
+    return s.replace(/^3([РМФКС])/iu, 'З$1');
+}
+
+function resolveDeptFromGroup_(groupRaw) {
+    const gUpper = normalizeGroupTypos_(groupRaw).toUpperCase();
+    if (gUpper.includes('БМ') || gUpper.includes('ЗМ')) return 'БМІ';
+    if (gUpper.includes('БФ') || gUpper.includes('ЗФ')) return 'ТМБІ';
+    if (gUpper.includes('БС') || gUpper.includes('ЗК') || gUpper.includes('ЗС')) return 'БМК';
+    if (gUpper.includes('БР') || gUpper.includes('ЗР')) return 'ББЗЛ';
+    return 'Інше';
+}
+
 function getRestoreOuPath_(groupRaw) {
-    const g = String(groupRaw || '').trim();
+    const g = normalizeGroupTypos_(groupRaw);
     const gUpper = g.toUpperCase();
-    
-    const isBMI = (gUpper.includes('БМ') || gUpper.includes('ЗМ'));
-    const isTMBI = (gUpper.includes('БФ') || gUpper.includes('ЗФ'));
-    const isBMK = (gUpper.includes('БС') || gUpper.includes('ЗК'));
-    const isBBZL = (gUpper.includes('БР') || gUpper.includes('ЗР'));
-
-    let dept = 'Інше';
-    if (isBMI) dept = 'БМІ';
-    else if (isTMBI) dept = 'ТМБІ';
-    else if (isBMK) dept = 'БМК';
-    else if (isBBZL) dept = 'ББЗЛ';
-
+    const dept = resolveDeptFromGroup_(g);
     return `/2. Факультети/ФБМІ/${dept}/3. Аспірантура/${gUpper}`;
 }
 

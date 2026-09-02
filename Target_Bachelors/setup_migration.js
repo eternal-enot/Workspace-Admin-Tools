@@ -1,9 +1,8 @@
 /**
- * TEMPORARY SCRIPT TO UPDATE THE SHEET
- * You can safely delete this file once the run is complete.
+ * Syncs sheet headers, data validation, and formatting with the current script.
  */
 
-function runOneTimeMigration() {
+function updateSheetLayout_() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheets = ss.getSheets().filter(s => 
         s.getName() !== "Архів" && 
@@ -88,5 +87,14 @@ function runOneTimeMigration() {
         updatedCount++;
     }
 
-    SpreadsheetApp.getUi().alert(`✅ Міграцію успішно завершено!\nОновлено аркушів: ${updatedCount}.\n\nТепер ви можете видалити скрипт "setup_migration.js" та відповідну кнопку з меню.`);
+    SpreadsheetApp.getUi().alert(
+        `✅ Вигляд таблиці оновлено.\n` +
+        `Оновлено аркушів: ${updatedCount}.\n` +
+        `Заголовки, actions і форматування синхронізовано зі скриптом.`
+    );
+}
+
+/** @deprecated Use updateSheetLayout_ */
+function runOneTimeMigration() {
+    updateSheetLayout_();
 }

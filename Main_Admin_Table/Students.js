@@ -313,23 +313,12 @@ function previewStudentRow_(sheet, rowIndex, row, userCache) {
  *  STUDENT OU & EMAIL
  *  ========================= */
 function buildStudentOrgUnitPath_(groupRaw) {
-  const g = String(groupRaw || '').trim();
-  const gUpper = g.toUpperCase();
+  const g = normalizeGroupTypos_(groupRaw);
   const gLower = g.toLowerCase();
 
   const isMaster = (gLower.includes('мп') || gLower.includes('мн'));
   const track = isMaster ? '2. Магістратура' : '1. Бакалаврат';
-
-  const isBMI = (gUpper.includes('БМ') || gUpper.includes('ЗМ'));
-  const isTMBI = (gUpper.includes('БФ') || gUpper.includes('ЗФ'));
-  const isBMK = (gUpper.includes('БС') || gUpper.includes('ЗК'));
-  const isBBZL = (gUpper.includes('БР') || gUpper.includes('ЗР'));
-
-  let dept = 'Інше';
-  if (isBMI) dept = 'БМІ';
-  else if (isTMBI) dept = 'ТМБІ';
-  else if (isBMK) dept = 'БМК';
-  else if (isBBZL) dept = 'ББЗЛ';
+  const dept = resolveDeptFromGroup_(g);
 
   const groupForOu = formatGroupForOu_(g, isMaster);
   const orgUnitPath = `${APP_CONFIG.STUDENTS_BASE_OU}/${dept}/${track}/${groupForOu}`;
@@ -357,11 +346,7 @@ function normalizeGroupForEmail_(groupUa) {
 function buildStudentPrimaryEmail_(surnameUa, nameUa, patrUa, groupEmailPart) {
   const surnameLat = normalizeNameTokenForEmail_(translitUaToLat_(surnameUa));
   const nameLat = normalizeNameTokenForEmail_(translitUaToLat_(nameUa));
-  const patrLat = normalizeNameTokenForEmail_(translitUaToLat_(patrUa || ''));
 
-  const i = (nameLat[0] || 'x');
-  const p = (patrLat[0] || 'x');
-
-  const local = `${surnameLat}.${i}.${p}.-${groupEmailPart}`;
+  const local = `${surnameLat}.${nameLat}_${groupEmailPart}`;
   return `${local}@${APP_CONFIG.DOMAIN}`.toLowerCase();
 }

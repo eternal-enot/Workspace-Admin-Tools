@@ -1,22 +1,33 @@
 /**
- * TEMPORARY SCRIPT TO UPDATE THE SHEET (Target_Masters)
- * You can safely delete this file once the run is complete.
+ * Syncs sheet headers, data validation, and formatting with the current script.
  */
 
-function runOneTimeMigration() {
+function updateSheetLayout_() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheets = ss.getSheets().filter(s => 
-        s.getName() !== "Архів" && 
+    const sheets = ss.getSheets().filter(s =>
+        s.getName() !== "Архів" &&
         s.getName() !== "До АСПІРАНТУРИ" &&
         s.getName() !== "Відповіді форми (1)"
     );
+
+    if (typeof setupGroupActionsFormatting_ !== "function") {
+        SpreadsheetApp.getUi().alert(
+            "❌ Функція setupGroupActionsFormatting_ не знайдена.\n\n" +
+            "Переконайтесь, що execute_group_actions.js задеплоєно (clasp push) і спробуйте ще раз."
+        );
+        return;
+    }
+
+    const validActions = (typeof GROUP_ACTIONS_CFG !== "undefined" && GROUP_ACTIONS_CFG.ACTIONS)
+        ? GROUP_ACTIONS_CFG.ACTIONS
+        : ["IDLE", "Send to Archive", "Move to PhD", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore", "Change Main Email"];
 
     const headers = [
         "Status",                // A (1)
         "record_type",           // B (2)
         "actions",               // C (3)
-        "",                      // D (4) - порожня
-        "",                      // E (5) - порожня
+        "",                      // D (4)
+        "",                      // E (5)
         "User key / email",      // F (6)
         "First name",            // G (7)
         "Last name",             // H (8)
@@ -37,7 +48,6 @@ function runOneTimeMigration() {
     let updatedCount = 0;
 
     for (const sheet of sheets) {
-        // 1. Setup column headers
         const maxCols = sheet.getMaxColumns();
         if (maxCols < headers.length) {
             sheet.insertColumnsAfter(maxCols, headers.length - maxCols);
@@ -46,47 +56,58 @@ function runOneTimeMigration() {
         sheet.setFrozenRows(1);
 
         const lastRow = sheet.getLastRow();
-        if (lastRow >= 2) {
-            // 2. Clear old Data Validation rules to avoid conflicts
-            const dataRangeB = sheet.getRange(2, 2, lastRow - 1, 1);
-            const dataRangeC = sheet.getRange(2, 3, lastRow - 1, 1);
-            
+        const maxRows = sheet.getMaxRows();
+        const dataRowCount = Math.max(lastRow - 1, 0);
+
+        if (dataRowCount > 0) {
+            const dataRangeA = sheet.getRange(2, 1, dataRowCount, 1);
+            const dataRangeB = sheet.getRange(2, 2, dataRowCount, 1);
+            const dataRangeC = sheet.getRange(2, 3, dataRowCount, 1);
+
+            dataRangeA.clearDataValidations();
             dataRangeB.clearDataValidations();
             dataRangeC.clearDataValidations();
-            
-            // Update legacy 'false' values to 'dropout' in column B
-            // Fill empty cells: B becomes 'active', C becomes 'IDLE'
+
             const valsB = dataRangeB.getValues();
             const valsC = dataRangeC.getValues();
-            
-            const validActions = ["IDLE", "Send to Archive", "Move to PhD", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore"];
 
             for (let i = 0; i < valsB.length; i++) {
                 const bStr = String(valsB[i][0] || "").trim().toLowerCase();
                 if (bStr === "false") {
                     valsB[i][0] = "dropout";
-                } else if (bStr === "" || bStr === "undefined") {
+                } else if (bStr === "true" || bStr === "" || bStr === "undefined") {
                     valsB[i][0] = "active";
                 }
-                
-                let cStr = String(valsC[i][0] || "").trim();
-                // Default to IDLE if the cell is empty or contains an invalid value
+
+                const cStr = String(valsC[i][0] || "").trim();
                 if (!validActions.includes(cStr)) {
                     valsC[i][0] = "IDLE";
                 }
             }
-            
+
             dataRangeB.setValues(valsB);
             dataRangeC.setValues(valsC);
         }
 
-        // 3. Apply Data Validation rules and conditional formatting
-        if (typeof setupGroupActionsFormatting_ === 'function') {
-            setupGroupActionsFormatting_(sheet);
+        // Clear stale validation on the rest of columns A/C (below lastRow)
+        if (maxRows > 2) {
+            const tailRows = maxRows - 1;
+            sheet.getRange(2, 1, tailRows, 1).clearDataValidations();
+            sheet.getRange(2, 3, tailRows, 1).clearDataValidations();
         }
 
+        setupGroupActionsFormatting_(sheet);
         updatedCount++;
     }
 
-    SpreadsheetApp.getUi().alert(`✅ Міграцію успішно завершено!\nОновлено аркушів: ${updatedCount}.\n\nТепер ви можете видалити скрипт "setup_migration.js" та відповідну кнопку з меню.`);
+    SpreadsheetApp.getUi().alert(
+        `✅ Вигляд таблиці оновлено.\n` +
+        `Оновлено аркушів: ${updatedCount}.\n` +
+        `Список actions синхронізовано зі скриптом (${validActions.length} пунктів).`
+    );
+}
+
+/** @deprecated Use updateSheetLayout_ */
+function runOneTimeMigration() {
+    updateSheetLayout_();
 }

@@ -1,0 +1,2 @@
+# Clasp ignore (replaces .gitignore for push). Secrets.js is pushed to Apps Script but stays out of git.
+Secrets.js.example

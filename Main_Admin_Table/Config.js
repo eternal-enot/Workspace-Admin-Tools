@@ -275,7 +275,7 @@ function transferFromFormResponsesSilent_() {
     const surnameEn = String(row[APP_CONFIG.FORM_COL_SURNAME_EN - 1] || '').trim();
     const personalEmail = String(row[APP_CONFIG.FORM_COL_PERSONAL_EMAIL - 1] || '').trim();
     const recoveryHint = String(row[APP_CONFIG.FORM_COL_RECOVERY_HINT - 1] || '').trim(); // C
-    const groupVal = String(row[APP_CONFIG.FORM_COL_GROUP - 1] || '').trim(); // J
+    const groupVal = normalizeGroupTypos_(String(row[APP_CONFIG.FORM_COL_GROUP - 1] || '').trim()); // J
     const deptVal = String(row[APP_CONFIG.FORM_COL_DEPT - 1] || '').trim();  // K
 
     // Check for PhD based on 'ф' in group (e.g. ЗК-41ф, ЗФ-31ф), ignoring Dept code prefixes (ЗФ-...)
@@ -504,6 +504,25 @@ function normalizeNameTokenForEmail_(latin) {
   let s = String(latin || '').toLowerCase();
   s = s.replace(/[^a-z]/g, '');
   return s || 'x';
+}
+
+/**
+ * Corrects common group-code typos before department/track detection.
+ * Digit 3 is often entered instead of Cyrillic З in dept prefixes (ЗР, ЗМ, ЗФ, ЗК, ЗС).
+ */
+function normalizeGroupTypos_(groupRaw) {
+  let s = String(groupRaw || '').trim();
+  if (!s) return s;
+  return s.replace(/^3([РМФКС])/iu, 'З$1');
+}
+
+function resolveDeptFromGroup_(groupRaw) {
+  const gUpper = normalizeGroupTypos_(groupRaw).toUpperCase();
+  if (gUpper.includes('БМ') || gUpper.includes('ЗМ')) return 'БМІ';
+  if (gUpper.includes('БФ') || gUpper.includes('ЗФ')) return 'ТМБІ';
+  if (gUpper.includes('БС') || gUpper.includes('ЗК') || gUpper.includes('ЗС')) return 'БМК';
+  if (gUpper.includes('БР') || gUpper.includes('ЗР')) return 'ББЗЛ';
+  return 'Інше';
 }
 
 function looksLikeEmail_(s) {

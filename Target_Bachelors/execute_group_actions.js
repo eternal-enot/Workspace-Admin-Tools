@@ -26,21 +26,25 @@ function executeGroupActionsAllSheets() {
     executeGroupActions_(true);
 }
 
+function normalizeGroupTypos_(groupRaw) {
+    let s = String(groupRaw || '').trim();
+    if (!s) return s;
+    return s.replace(/^3([РМФКС])/iu, 'З$1');
+}
+
+function resolveDeptFromGroup_(groupRaw) {
+    const gUpper = normalizeGroupTypos_(groupRaw).toUpperCase();
+    if (gUpper.includes('БМ') || gUpper.includes('ЗМ')) return 'БМІ';
+    if (gUpper.includes('БФ') || gUpper.includes('ЗФ')) return 'ТМБІ';
+    if (gUpper.includes('БС') || gUpper.includes('ЗК') || gUpper.includes('ЗС')) return 'БМК';
+    if (gUpper.includes('БР') || gUpper.includes('ЗР')) return 'ББЗЛ';
+    return 'Інше';
+}
+
 function getRestoreOuPath_(groupRaw) {
-    const g = String(groupRaw || '').trim();
+    const g = normalizeGroupTypos_(groupRaw);
     const gUpper = g.toUpperCase();
-    
-    const isBMI = (gUpper.includes('БМ') || gUpper.includes('ЗМ'));
-    const isTMBI = (gUpper.includes('БФ') || gUpper.includes('ЗФ'));
-    const isBMK = (gUpper.includes('БС') || gUpper.includes('ЗК'));
-    const isBBZL = (gUpper.includes('БР') || gUpper.includes('ЗР'));
-
-    let dept = 'Інше';
-    if (isBMI) dept = 'БМІ';
-    else if (isTMBI) dept = 'ТМБІ';
-    else if (isBMK) dept = 'БМК';
-    else if (isBBZL) dept = 'ББЗЛ';
-
+    const dept = resolveDeptFromGroup_(g);
     return `/2. Факультети/ФБМІ/${dept}/1. Бакалаврат/${gUpper}`;
 }
 
@@ -85,6 +89,7 @@ function executeGroupActions_(processAll) {
         const maxCol = Math.max(lastCol, GROUP_ACTIONS_CFG.TIMESTAMP_COL);
         const dataRange = sheet.getRange(GROUP_ACTIONS_CFG.START_ROW, 1, lastRow - GROUP_ACTIONS_CFG.START_ROW + 1, maxCol);
         const data = dataRange.getValues();
+        const rowsToDelete = [];
 
         for (let i = 0; i < data.length; i++) {
             const rowIndex = GROUP_ACTIONS_CFG.START_ROW + i;
@@ -122,12 +127,16 @@ function executeGroupActions_(processAll) {
                     stats.archive++;
 
                 } else if (action === "Move to Masters") {
-                    if (!mainEmail || !mainEmail.includes("@")) throw new Error("Missing or invalid gen email (Col I)");
+                    if (!mainEmail || !mainEmail.includes("@")) throw new Error("Missing or invalid email (Col F)");
+
+                    const targetGroup = String(rowData[5 - 1] || "").trim(); // Col E — master group
+                    if (!targetGroup) throw new Error("Missing target master group (Col E)");
+
+                    const newOu = buildMasterOuPath_(targetGroup);
 
                     const userObj = typeof callWithRetry_ !== "undefined" ? callWithRetry_(() => AdminDirectory.Users.get(mainEmail), 5) : AdminDirectory.Users.get(mainEmail);
                     const currentOu = userObj.orgUnitPath;
-                    const newOu = currentOu.replace('/1. Бакалаврат', '/2. Магістратура');
-                    
+
                     if (newOu !== currentOu) {
                         if (typeof archiveEnsureOrgUnit_ !== "undefined") archiveEnsureOrgUnit_(newOu);
                         if (typeof callWithRetry_ !== "undefined") {
@@ -137,9 +146,9 @@ function executeGroupActions_(processAll) {
                         }
                     }
 
-                    sheet.getRange(rowIndex, 12).setValue(newOu); // Update Org unit path (Col L)
-                    sheet.getRange(rowIndex, GROUP_ACTIONS_CFG.RECORD_TYPE_COL).setValue(`master (In OU)`);
-                    sheet.getRange(rowIndex, GROUP_ACTIONS_CFG.ACTION_COL).setValue("IDLE");
+                    transferEmailToMastersSpreadsheet_(mainEmail, targetGroup);
+
+                    rowsToDelete.push(rowIndex);
                     stats.masters++;
 
                 } else if (action === "Move to Custom OU") {
@@ -298,6 +307,13 @@ function executeGroupActions_(processAll) {
 
             } catch (e) {
                 stats.errors.push(`Sheet ${sheet.getName()}, row ${rowIndex}: action "${action}" - ${e.message}`);
+            }
+        }
+
+        if (rowsToDelete.length > 0) {
+            rowsToDelete.sort((a, b) => b - a);
+            for (const r of rowsToDelete) {
+                sheet.deleteRow(r);
             }
         }
         

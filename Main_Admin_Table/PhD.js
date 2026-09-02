@@ -310,23 +310,9 @@ function previewPhdRow_(sheet, rowIndex, row, userCache) {
  *  PHD OU & EMAIL
  *  ========================= */
 function buildPhdOrgUnitPath_(groupRaw) {
-  const g = String(groupRaw || '').trim();
-  const gUpper = g.toUpperCase();
-
+  const g = normalizeGroupTypos_(groupRaw);
   const track = '3. Аспіранти';
-
-  const isBMI = (gUpper.includes('БМ') || gUpper.includes('ЗМ'));
-  const isTMBI = (gUpper.includes('БФ') || gUpper.includes('ЗФ'));
-  const isBMK = (gUpper.includes('БС') || gUpper.includes('ЗК'));
-  const isBBZL = (gUpper.includes('БР') || gUpper.includes('ЗР'));
-
-  let dept = 'Інше';
-  if (isBMI) dept = 'БМІ';
-  else if (isTMBI) dept = 'ТМБІ';
-  else if (isBMK) dept = 'БМК';
-  else if (isBBZL) dept = 'ББЗЛ';
-
-  // Example OU: /2. Факультети/ФБМІ/<dept>/3. Аспіранти/<group>
+  const dept = resolveDeptFromGroup_(g);
   return `${APP_CONFIG.STUDENTS_BASE_OU}/${dept}/${track}/${g}`;
 }
 
