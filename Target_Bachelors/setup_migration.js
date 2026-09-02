@@ -58,7 +58,7 @@ function updateSheetLayout_() {
             const valsB = dataRangeB.getValues();
             const valsC = dataRangeC.getValues();
             
-            const validActions = ["IDLE", "Send to Archive", "Move to Masters", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore"];
+            const validActions = ["IDLE", "Send to Archive", "Move to Masters", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore", "Change Main Email", "Change Name"];
 
             for (let i = 0; i < valsB.length; i++) {
                 const bStr = String(valsB[i][0] || "").trim().toLowerCase();

@@ -20,7 +20,7 @@ function updateSheetLayout_() {
 
     const validActions = (typeof GROUP_ACTIONS_CFG !== "undefined" && GROUP_ACTIONS_CFG.ACTIONS)
         ? GROUP_ACTIONS_CFG.ACTIONS
-        : ["IDLE", "Send to Archive", "Move to PhD", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore", "Change Main Email"];
+        : ["IDLE", "Send to Archive", "Move to PhD", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore", "Change Main Email", "Change Name"];
 
     const headers = [
         "Status",                // A (1)

@@ -4,7 +4,7 @@ const GROUP_ACTIONS_CFG = {
     STATUS_COL: 1, // A
     START_ROW: 2,
     TIMESTAMP_COL: 20, // T
-    ACTIONS: ["IDLE", "Send to Archive", "Move to Masters", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore", "Change Main Email"],
+    ACTIONS: ["IDLE", "Send to Archive", "Move to Masters", "Move to Custom OU", "Notify Deletion", "Notify Alumni", "Delete Account", "Restore", "Change Main Email", "Change Name"],
     COLORS: {
         "IDLE": "#fff9c4",
         "Send to Archive": "#ffcc80",
@@ -14,7 +14,8 @@ const GROUP_ACTIONS_CFG = {
         "Notify Alumni": "#90caf9",
         "Delete Account": "#ef9a9a",
         "Restore": "#c8e6c9",
-        "Change Main Email": "#e1bee7"
+        "Change Main Email": "#e1bee7",
+        "Change Name": "#b2dfdb"
     }
 };
 
@@ -68,7 +69,7 @@ function executeGroupActions_(processAll) {
         }
     }
 
-    let stats = { archive: 0, masters: 0, customOu: 0, notified: 0, deleted: 0, restored: 0, emailChanges: 0, errors: [] };
+    let stats = { archive: 0, masters: 0, customOu: 0, notified: 0, deleted: 0, restored: 0, emailChanges: 0, nameChanges: 0, errors: [] };
 
     // Calculate deletion date for emails (e.g. 6 months from now)
     const deletionDate = new Date();
@@ -303,6 +304,27 @@ function executeGroupActions_(processAll) {
                     sheet.getRange(rowIndex, GROUP_ACTIONS_CFG.RECORD_TYPE_COL).setValue(`Email changed`);
                     sheet.getRange(rowIndex, GROUP_ACTIONS_CFG.ACTION_COL).setValue("IDLE");
                     stats.emailChanges++;
+                } else if (action === "Change Name") {
+                    const newFirstName = String(rowData[7 - 1] || "").trim(); // Col G
+                    const newLastName = String(rowData[8 - 1] || "").trim(); // Col H
+
+                    if (!mainEmail || !mainEmail.includes("@")) throw new Error("Missing or invalid email (Col F)");
+                    if (!newFirstName) throw new Error("Missing new first name (Col G)");
+                    if (!newLastName) throw new Error("Missing new last name (Col H)");
+
+                    if (typeof callWithRetry_ !== "undefined") {
+                        callWithRetry_(() => AdminDirectory.Users.update({
+                            name: { givenName: newFirstName, familyName: newLastName }
+                        }, mainEmail), 5);
+                    } else {
+                        AdminDirectory.Users.update({
+                            name: { givenName: newFirstName, familyName: newLastName }
+                        }, mainEmail);
+                    }
+
+                    sheet.getRange(rowIndex, GROUP_ACTIONS_CFG.RECORD_TYPE_COL).setValue("Name changed");
+                    sheet.getRange(rowIndex, GROUP_ACTIONS_CFG.ACTION_COL).setValue("IDLE");
+                    stats.nameChanges++;
                 }
 
             } catch (e) {
@@ -328,13 +350,14 @@ function executeGroupActions_(processAll) {
               `Notified: ${stats.notified}\n` +
               `Deleted: ${stats.deleted}\n` +
               `Restored: ${stats.restored}\n` +
-              `Emails Changed: ${stats.emailChanges}`;
+              `Emails Changed: ${stats.emailChanges}\n` +
+              `Names Changed: ${stats.nameChanges}`;
     
     if (stats.errors.length > 0) {
         msg += `\n\n⚠️ Errors:\n` + stats.errors.join("\n");
     }
     
-    if (stats.archive === 0 && stats.masters === 0 && stats.customOu === 0 && stats.notified === 0 && stats.deleted === 0 && stats.restored === 0 && stats.emailChanges === 0 && stats.errors.length === 0) {
+    if (stats.archive === 0 && stats.masters === 0 && stats.customOu === 0 && stats.notified === 0 && stats.deleted === 0 && stats.restored === 0 && stats.emailChanges === 0 && stats.nameChanges === 0 && stats.errors.length === 0) {
         ui.alert("🤷‍♂️ No actionable rows found (all IDLE).");
     } else {
         ui.alert(msg);
