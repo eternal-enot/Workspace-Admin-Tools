@@ -57,7 +57,7 @@ function updateSheetLayout_() {
             const valsB = dataRangeB.getValues();
             const valsC = dataRangeC.getValues();
             
-            const validActions = ["IDLE", "Send to Archive", "Restore", "Move to Custom OU"];
+            const validActions = ["IDLE", "Send to Archive", "Restore", "Move to Custom OU", "Change Main Email"];
 
             for (let i = 0; i < valsB.length; i++) {
                 const bStr = String(valsB[i][0] || "").trim().toLowerCase();

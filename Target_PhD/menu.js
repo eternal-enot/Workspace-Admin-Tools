@@ -11,5 +11,7 @@ function onOpen() {
         .addSeparator()
         .addItem("Execute group actions (Active Sheet)", "executeGroupActionsActiveSheet")
         .addItem("Execute group actions (All Sheets)", "executeGroupActionsAllSheets")
+        .addSeparator()
+        .addItem("Надіслати тестовий лист (Зміна Email)", "sendTestChangeEmail")
         .addToUi();
 }
