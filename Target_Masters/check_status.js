@@ -89,6 +89,7 @@ function checkUsersAndLastLogin_(processAll) {
 
         const statusOut = [];
         const out = [];
+        const keysOut = [];
 
         for (let i = 0; i < n; i++) {
             const key = keys[i];
@@ -98,6 +99,7 @@ function checkUsersAndLastLogin_(processAll) {
             if (!key) {
                 statusOut.push([""]);
                 out.push(["", "", "", "", "", ""]);
+                keysOut.push([""]);
                 continue;
             }
 
@@ -110,6 +112,7 @@ function checkUsersAndLastLogin_(processAll) {
                 // Skip processing and leave existing values intact
                 statusOut.push([currentStatusRaw]);
                 out.push(currentOut);
+                keysOut.push([key]);
                 continue;
             }
 
@@ -118,6 +121,13 @@ function checkUsersAndLastLogin_(processAll) {
                     projection: "full",
                     viewType: "admin_view"
                 });
+
+                const primaryEmail = safe_(user?.primaryEmail);
+                if (primaryEmail && primaryEmail.toLowerCase() !== key.toLowerCase()) {
+                    keysOut.push([primaryEmail]);
+                } else {
+                    keysOut.push([key]);
+                }
 
                 const firstName = safe_(user?.name?.givenName);
                 const lastName = safe_(user?.name?.familyName);
@@ -138,6 +148,7 @@ function checkUsersAndLastLogin_(processAll) {
                 out.push([firstName, lastName, extraEmail, lastLoginLocal, note, orgUnitPath]);
 
             } catch (e) {
+                keysOut.push([key]);
                 const msg = (e && e.message) ? e.message : String(e);
 
                 if (/(notFound|Resource Not Found|404)/i.test(msg)) {
@@ -153,8 +164,9 @@ function checkUsersAndLastLogin_(processAll) {
             }
         }
 
-        // Write results: status in column A, other fields as a block in columns G..L
+        // Write results: status in column A, key in column F, other fields as a block in columns G..L
         sheet.getRange(CONFIG.START_ROW, CONFIG.STATUS_COL, n, 1).setValues(statusOut);
+        sheet.getRange(CONFIG.START_ROW, CONFIG.INPUT_COL, n, 1).setValues(keysOut);
         sheet.getRange(CONFIG.START_ROW, CONFIG.OUTPUT_START_COL, n, CONFIG.OUTPUT_NUM_COLS).setValues(out);
     }
 }
